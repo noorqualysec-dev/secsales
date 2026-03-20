@@ -4,7 +4,10 @@ export interface User {
   _id: string;
   name: string;
   email: string;
-  role: "admin" | "ADMIN" | "user" | "sales";
+  role: "admin" | "sales_rep" | "manager";
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export type LeadStatus =
@@ -29,18 +32,31 @@ export type LeadSource =
   | "offline_source"
   | "other";
 
+export interface TimelineEvent {
+  event: string;
+  status?: string;
+  remark?: string;
+  performedBy: User | string;
+  timestamp: string;
+}
+
 export interface Lead {
   _id: string;
   firstName: string;
   lastName: string;
   email: string;
+  designation?: string;
+  employeeStrength?: string;
   phone?: string;
   company?: string;
   country?: string;
   industry?: string;
   status: LeadStatus;
+  latestRemark?: string;
   source: LeadSource;
   assignedTo?: User | string;
+  createdBy: User | string;
+  timeline: TimelineEvent[];
   createdAt: string;
   updatedAt: string;
 }

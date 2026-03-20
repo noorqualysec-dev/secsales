@@ -20,10 +20,18 @@ export default function LoginPage() {
       return response.data;
     },
     onSuccess: (data) => {
-      const { token, ...user } = data?.data ?? {};
+      const { token, ...userData } = data?.data ?? {};
+      const user = userData.user || userData;
+      
       if (token) localStorage.setItem("token", token);
       if (user) localStorage.setItem("user", JSON.stringify(user));
-      router.push("/dashboard");
+      window.dispatchEvent(new Event("auth-change"));
+
+      if (user?.role === "admin") {
+        router.push("/admin/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
     },
     onError: (error: any) => {
       alert(error?.response?.data?.message || "Login failed. Please verify credentials.");
