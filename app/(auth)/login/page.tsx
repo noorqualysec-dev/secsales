@@ -1,8 +1,41 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
+import { api } from "@/app/services/api";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
 
 export default function LoginPage() {
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  const loginMutation = useMutation({
+    mutationFn: async () => {
+      // Connect to the local backend /api/users/login endpoint
+      const response = await api.post("/users/login", { email, password });
+      return response.data;
+    },
+    onSuccess: (data) => {
+      if (data.token) {
+        localStorage.setItem("token", data.token); // Secure the session
+      }
+      alert("Login successful!");
+      router.push("/"); // Navigate to dashboard
+    },
+    onError: (error: any) => {
+      alert(error?.response?.data?.message || "Login failed. Please verify credentials.");
+    }
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate();
+  };
+
   return (
     <div className="bg-white p-8 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
       <div className="text-center mb-8">
@@ -10,12 +43,21 @@ export default function LoginPage() {
         <p className="text-sm text-black-500 mt-2">Sign in to your CRM dashboard</p>
       </div>
 
-      <form className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700" htmlFor="email">
             Email Address
           </label>
-          <Input className="text-slate-700" id="email" type="email" placeholder="you@company.com" required />
+          <Input 
+            className="text-slate-700" 
+            id="email" 
+            type="email" 
+            placeholder="you@company.com" 
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required 
+            disabled={loginMutation.isPending}
+          />
         </div>
         
         <div className="space-y-2">
@@ -27,11 +69,20 @@ export default function LoginPage() {
               Forgot password?
             </Link>
           </div>
-          <Input className="text-slate-700" id="password" type="password" placeholder="••••••••" required />
+          <Input 
+            className="text-slate-700" 
+            id="password" 
+            type="password" 
+            placeholder="••••••••" 
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required 
+            disabled={loginMutation.isPending}
+          />
         </div>
 
-        <Button type="button" className="w-full mt-2">
-          Sign In
+        <Button type="submit" className="w-full mt-2" disabled={loginMutation.isPending}>
+          {loginMutation.isPending ? "Signing in..." : "Sign In"}
         </Button>
       </form>
 
