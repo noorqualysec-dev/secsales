@@ -20,9 +20,8 @@ export default function LoginPage() {
       return response.data;
     },
     onSuccess: (data) => {
-      if (data.token) {
-        localStorage.setItem("token", data.token); // Secure the session
-      }
+      let token = data?.data?.token
+      if (token) localStorage.setItem("token", token); // Secure the session
       alert("Login successful!");
       router.push("/"); // Navigate to dashboard
     },
