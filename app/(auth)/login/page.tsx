@@ -20,10 +20,10 @@ export default function LoginPage() {
       return response.data;
     },
     onSuccess: (data) => {
-      let token = data?.data?.token
-      if (token) localStorage.setItem("token", token); // Secure the session
-      alert("Login successful!");
-      router.push("/"); // Navigate to dashboard
+      const { token, ...user } = data?.data ?? {};
+      if (token) localStorage.setItem("token", token);
+      if (user) localStorage.setItem("user", JSON.stringify(user));
+      router.push("/dashboard");
     },
     onError: (error: any) => {
       alert(error?.response?.data?.message || "Login failed. Please verify credentials.");
@@ -38,8 +38,8 @@ export default function LoginPage() {
   return (
     <div className="bg-white p-8 rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100">
       <div className="text-center mb-8">
-        <h1 className="text-2xl font-bold text-black-900">Welcome Back</h1>
-        <p className="text-sm text-black-500 mt-2">Sign in to your CRM dashboard</p>
+        <h1 className="text-2xl font-bold text-slate-900">Welcome Back</h1>
+        <p className="text-sm text-slate-500 mt-2">Sign in to your CRM dashboard</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">

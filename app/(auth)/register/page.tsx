@@ -21,9 +21,10 @@ export default function RegisterPage() {
       return response.data;
     },
     onSuccess: (data) => {
-      if (data.token) localStorage.setItem("token", data.token);
-      alert("Registration successful! Welcome to the CRM.");
-      router.push("/");
+      const { token, ...user } = data?.data ?? {};
+      if (token) localStorage.setItem("token", token);
+      if (user) localStorage.setItem("user", JSON.stringify(user));
+      router.push("/dashboard");
     },
     onError: (error: any) => {
       alert(error?.response?.data?.message || "Registration failed. Please try again.");
