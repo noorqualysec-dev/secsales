@@ -12,11 +12,21 @@ export const api = axios.create({
 // Interceptor to automatically attach the user's JWT Token to all API requests
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Because Next.js runs on server and client, ensure we are in the browser
     if (typeof window !== "undefined") {
-      const token = localStorage.getItem("token");
-      if (token && config.headers) {
-        config.headers.Authorization = `Bearer ${token}`;
+      let tokenValue = null;
+
+      // Smart decision: If the page URL starts with /admin, look for the admin_token first
+      if (window.location.pathname.startsWith("/admin")) {
+        tokenValue = localStorage.getItem("admin_token");
+      }
+
+      // If no admin token or NOT an admin path, use the standard token
+      if (!tokenValue) {
+        tokenValue = localStorage.getItem("token");
+      }
+
+      if (tokenValue && config.headers) {
+        config.headers.Authorization = `Bearer ${tokenValue}`;
       }
     }
     return config;

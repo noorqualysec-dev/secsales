@@ -93,7 +93,7 @@ export default function AdminProposalsPage() {
         </h2>
       </div>
 
-      <div className="bg-white border border-slate-200 rounded-[2rem] shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl group/ledger">
+      <div className="bg-white border border-slate-200 rounded-4xl overflow-hidden transition-all duration-300 group/ledger">
         <div className="overflow-x-auto custom-scrollbar">
            <table className="w-full text-left border-collapse min-w-[1000px]">
             <thead>

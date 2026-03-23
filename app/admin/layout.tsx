@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { AdminSidebar } from "@/app/components/admin/AdminSidebar";
 import { AdminHeader } from "@/app/components/admin/AdminHeader";
-import { useAuth } from "@/app/hooks/useAuth";
+import { useAdminAuth } from "@/app/hooks/useAdminAuth";
 import { ShieldAlert } from "lucide-react";
 
 const adminPageTitles: Record<string, string> = {
@@ -15,14 +15,15 @@ const adminPageTitles: Record<string, string> = {
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading, logout } = useAuth();
+  // Use the isolated Admin Auth hook to prevent session conflict with Sales portal
+  const { user, loading, logout } = useAdminAuth();
   const pathname = usePathname();
   const router = useRouter();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   // Close mobile sidebar on route change
   useEffect(() => {
-    setSidebarOpen(false);
+    setIsSidebarOpen(false);
   }, [pathname]);
 
   // Admin Route Protection
@@ -62,7 +63,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </p>
         <button
           onClick={() => {
-            localStorage.clear();
+            logout();
             router.push("/admin");
           }}
           className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 px-8 rounded-xl transition duration-300 shadow-lg shadow-indigo-500/20 active:scale-95"
@@ -78,27 +79,27 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-inter antialiased">
       {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
+      {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 lg:hidden transition-all duration-300"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Admin Sidebar */}
-      <div
+      <aside
         className={`fixed inset-y-0 left-0 z-40 transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
+          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <AdminSidebar onClose={() => setSidebarOpen(false)} />
-      </div>
+        <AdminSidebar onClose={() => setIsSidebarOpen(false)} />
+      </aside>
 
       {/* Main content */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden relative">
         <AdminHeader
           pageTitle={pageTitle}
-          onMenuClick={() => setSidebarOpen(true)}
+          onMenuClick={() => setIsSidebarOpen(true)}
           onLogout={() => {
             logout();
             router.push("/admin");

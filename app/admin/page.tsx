@@ -6,11 +6,14 @@ import { Zap, ArrowRight, UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { api } from "@/app/services/api";
 
+import { useAdminAuth } from "@/app/hooks/useAdminAuth";
+
 export default function AdminAuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const router = useRouter();
+  const { checkAuth } = useAdminAuth(false);
+  const [isAdminLogin, setIsAdminLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const router = useRouter();
 
   const [form, setForm] = useState({
     name: "",
@@ -24,17 +27,17 @@ export default function AdminAuthPage() {
     setError("");
 
     try {
-      const endpoint = isLogin ? "/users/login" : "/users";
-      const payload = isLogin 
+      const endpoint = isAdminLogin ? "/users/login" : "/users";
+      const payload = isAdminLogin 
         ? { email: form.email, password: form.password }
         : { ...form, role: "admin" }; // Explicitly register as admin for this portal
 
       const res = await api.post(endpoint, payload);
       
       if (res.data.success) {
-        localStorage.setItem("token", res.data.data.token);
-        localStorage.setItem("user", JSON.stringify(res.data.data.user || res.data.data));
-        window.dispatchEvent(new Event("auth-change"));
+        localStorage.setItem("admin_token", res.data.data.token);
+        localStorage.setItem("admin_user", JSON.stringify(res.data.data.user || res.data.data));
+        window.dispatchEvent(new Event("admin-auth-change"));
         router.push("/admin/dashboard");
       }
     } catch (err: any) {
@@ -57,7 +60,7 @@ export default function AdminAuthPage() {
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Admin Portal</h1>
           <p className="text-slate-400 mt-2 text-sm">
-            {isLogin ? "Welcome back, please sign in." : "Create a new administrator account."}
+            {isAdminLogin ? "Welcome back, please sign in." : "Create a new administrator account."}
           </p>
         </div>
 
@@ -69,7 +72,7 @@ export default function AdminAuthPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {!isLogin && (
+            {!isAdminLogin && (
               <div>
                 <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1.5 block">Full Name</label>
                 <input
@@ -114,7 +117,7 @@ export default function AdminAuthPage() {
             >
               {loading ? (
                 <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : isLogin ? (
+              ) : isAdminLogin ? (
                 <span className="flex items-center gap-2">Sign In <LogIn size={18} /></span>
               ) : (
                 <span className="flex items-center gap-2">Create Account <UserPlus size={18} /></span>
@@ -124,10 +127,10 @@ export default function AdminAuthPage() {
 
           <div className="mt-8 pt-8 border-t border-slate-800 flex justify-center">
             <button
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => setIsAdminLogin(!isAdminLogin)}
               className="text-sm font-medium text-slate-400 hover:text-white transition"
             >
-              {isLogin ? "Don't have an admin account? Register" : "Already have an account? Sign In"}
+              {isAdminLogin ? "Don't have an admin account? Register" : "Already have an account? Sign In"}
             </button>
           </div>
         </div>

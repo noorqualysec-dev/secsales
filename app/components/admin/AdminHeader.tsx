@@ -36,14 +36,14 @@ export function AdminHeader({ pageTitle, onMenuClick, onLogout }: AdminHeaderPro
 
       <div className="flex items-center gap-4">
         {/* Quick Search */}
-        <div className="hidden md:flex items-center bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl text-slate-400 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-200 transition-all duration-300 w-64 group">
+        {/* <div className="hidden md:flex items-center bg-slate-50 border border-slate-200 px-3.5 py-2 rounded-xl text-slate-400 focus-within:ring-2 focus-within:ring-indigo-100 focus-within:border-indigo-200 transition-all duration-300 w-64 group">
           <Search size={16} className="shrink-0 group-hover:text-indigo-400 transition" />
           <input
             type="text"
             placeholder="Search records..."
             className="bg-transparent border-none text-xs font-medium focus:outline-none w-full ml-2 text-slate-700 placeholder:text-slate-400"
           />
-        </div>
+        </div> */}
 
         {/* Action Buttons */}
         <div className="flex items-center gap-2 border-l border-slate-200 pl-4 ml-2">
