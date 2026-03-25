@@ -12,10 +12,8 @@ export interface User {
 
 export type LeadStatus =
   | "Lead Captured"
-  | "Discovery Call Scheduled"
-  | "Requirement Gathering"
-  | "Pre-Assessment Form Sent"
-  | "Proposal Preparation"
+  | "Contacted"
+  | "Qualified"
   | "Proposal Sent"
   | "Negotiation"
   | "Won"

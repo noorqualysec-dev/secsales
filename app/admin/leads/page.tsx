@@ -12,16 +12,23 @@ import {
   MessageSquare,
   Building2,
   Briefcase,
-  ChevronDown
+  ChevronDown,
+  Plus,
+  UserPlus,
+  Eye,
+  FileText
 } from "lucide-react";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import type { Lead, User, TimelineEvent } from "@/app/types";
 
 function TimelineModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
+  // ... (keeping internal logic same, but adding icons)
   const getEventIcon = (event: string) => {
     switch (event) {
       case "Creation": return <Plus className="w-4 h-4" />;
-      case "Status Change": return <History className="w-4 h-4" />;
+      case "Status Changed": return <History className="w-4 h-4" />;
       case "Remark Added": return <MessageSquare className="w-4 h-4" />;
       case "Assigned": return <UserPlus className="w-4 h-4" />;
       default: return <Clock className="w-4 h-4" />;
@@ -45,7 +52,7 @@ function TimelineModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
             {[...(lead.timeline || [])].reverse().map((ev, i) => (
               <div key={i} className="relative pl-12 group">
                 <div className="absolute left-0 w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center border-4 border-white shadow-sm z-10 transition-transform group-hover:scale-110">
-                   <Clock className="w-4 h-4" />
+                   {getEventIcon(ev.event)}
                 </div>
                 <div className="space-y-1">
                   <div className="flex items-center justify-between">
@@ -69,7 +76,10 @@ function TimelineModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
 }
 
 export default function AdminLeadsPage() {
-  const { data: leadsData, isLoading: leadsLoading } = useAdminLeads();
+  const searchParams = useSearchParams();
+  const statusFilter = searchParams.get("status") || undefined;
+  
+  const { data: leadsData, isLoading: leadsLoading } = useAdminLeads(statusFilter);
   const { data: usersData } = useAdminUsers();
   const assignLead = useAssignLead();
 
@@ -89,10 +99,13 @@ export default function AdminLeadsPage() {
 
   const getStatusBadge = (status: string) => {
     const colors: Record<string, string> = {
-      "Lead Captured": "bg-blue-50 text-blue-600 border-blue-100 shadow-blue-50",
+      "Lead Captured": "bg-slate-50 text-slate-600 border-slate-100",
+      "Contacted": "bg-blue-50 text-blue-600 border-blue-100",
+      "Qualified": "bg-indigo-50 text-indigo-600 border-indigo-100",
+      "Proposal Sent": "bg-amber-50 text-amber-600 border-amber-100",
+      "Negotiation": "bg-orange-50 text-orange-600 border-orange-100",
       "Won": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
       "Lost": "bg-rose-50 text-rose-600 border-rose-100 shadow-rose-50",
-      "Negotiation": "bg-amber-50 text-amber-600 border-amber-100 shadow-amber-50",
     };
     const cls = colors[status] || "bg-slate-50 text-slate-600 border-slate-100 shadow-slate-50";
     
@@ -219,10 +232,17 @@ export default function AdminLeadsPage() {
                   </td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center gap-3 justify-end">
+                      <Link
+                        href={`/admin/leads/${lead._id}`}
+                        className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:shadow-md transition-all duration-300"
+                        title="View Full Lead Journey"
+                      >
+                        <Eye size={16} />
+                      </Link>
                       <button
                         onClick={() => setTimelineLead(lead)}
                         className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:shadow-md transition-all duration-300"
-                        title="View Global Timeline"
+                        title="Quick Lifecycle Audit"
                       >
                         <History size={16} />
                       </button>
