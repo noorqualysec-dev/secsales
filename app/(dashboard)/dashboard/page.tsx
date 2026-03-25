@@ -3,19 +3,36 @@
 import { useLeads } from "@/app/hooks/useLeads";
 import { useProposals } from "@/app/hooks/useProposals";
 import type { Lead } from "@/app/types";
-import { TrendingUp, Users, FileText, CheckCircle } from "lucide-react";
+import { useState, useMemo } from "react";
+import { 
+  TrendingUp, 
+  Users, 
+  FileText, 
+  CheckCircle, 
+  LayoutDashboard, 
+  Target, 
+  Activity, 
+  ShieldCheck, 
+  FileCheck, 
+  BarChart3, 
+  HandCoins, 
+  Clock, 
+  ArrowRight,
+  Eye
+} from "lucide-react";
+import Link from "next/link";
 
-const statusColors: Record<string, string> = {
-  "Lead Captured": "bg-blue-100 text-blue-700",
-  "Discovery Call Scheduled": "bg-purple-100 text-purple-700",
-  "Requirement Gathering": "bg-yellow-100 text-yellow-700",
-  "Pre-Assessment Form Sent": "bg-orange-100 text-orange-700",
-  "Proposal Preparation": "bg-indigo-100 text-indigo-700",
-  "Proposal Sent": "bg-cyan-100 text-cyan-700",
-  "Negotiation": "bg-amber-100 text-amber-700",
-  "Won": "bg-green-100 text-green-700",
-  "Lost": "bg-red-100 text-red-700",
-};
+const STAGE_CONFIG = [
+  { name: "Lead Captured", color: "bg-slate-500", icon: Target },
+  { name: "Discovery Call Scheduled", color: "bg-blue-500", icon: Activity },
+  { name: "Requirement Gathering", color: "bg-indigo-500", icon: ShieldCheck },
+  { name: "Pre-Assessment Form Sent", color: "bg-violet-500", icon: FileText },
+  { name: "Proposal Preparation", color: "bg-purple-500", icon: BarChart3 },
+  { name: "Proposal Sent", color: "bg-amber-500", icon: HandCoins },
+  { name: "Negotiation", color: "bg-orange-500", icon: Clock },
+  { name: "Won", color: "bg-emerald-500", icon: TrendingUp },
+  { name: "Lost", color: "bg-rose-500", icon: Activity }
+];
 
 export default function DashboardPage() {
   const { data: leadsData, isLoading: leadsLoading } = useLeads();
@@ -24,35 +41,19 @@ export default function DashboardPage() {
   const leads = leadsData?.data ?? [];
   const proposals = proposalsData?.data ?? [];
 
-  const stats = [
-    {
-      label: "Total Leads",
-      value: leads.length,
-      icon: Users,
-      color: "bg-blue-500",
-      bg: "bg-blue-50",
-    },
-    {
-      label: "Won Leads",
-      value: leads.filter((l) => l.status === "Won").length,
-      icon: TrendingUp,
-      color: "bg-green-500",
-      bg: "bg-green-50",
-    },
-    {
-      label: "Total Proposals",
-      value: proposals.length,
-      icon: FileText,
-      color: "bg-indigo-500",
-      bg: "bg-indigo-50",
-    },
-    {
-      label: "Accepted Proposals",
-      value: proposals.filter((p) => p.status === "Accepted").length,
-      icon: CheckCircle,
-      color: "bg-emerald-500",
-      bg: "bg-emerald-50",
-    },
+  // Calculate pipeline stats for this user
+  const pipelineStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    STAGE_CONFIG.forEach(s => stats[s.name] = 0);
+    leads.forEach(l => { if (stats[l.status] !== undefined) stats[l.status]++; });
+    return stats;
+  }, [leads]);
+
+  const mainStats = [
+    { label: "Total Leads", value: leads.length, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
+    { label: "Won Leads", value: leads.filter((l) => l.status === "Won").length, icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
+    { label: "Total Proposals", value: proposals.length, icon: FileText, color: "text-indigo-600", bg: "bg-indigo-50" },
+    { label: "Accepted", value: proposals.filter((p) => p.status === "Accepted").length, icon: CheckCircle, color: "text-cyan-600", bg: "bg-cyan-50" },
   ];
 
   const recentLeads = [...leads]
@@ -61,70 +62,125 @@ export default function DashboardPage() {
 
   if (leadsLoading || proposalsLoading) {
     return (
-      <div className="space-y-6 animate-pulse">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="space-y-8 animate-pulse text-slate-400">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="h-28 bg-slate-200 rounded-xl" />
+            <div key={i} className="h-32 bg-slate-200 rounded-2xl border border-slate-100" />
           ))}
         </div>
-        <div className="h-64 bg-slate-200 rounded-xl" />
+        <div className="h-48 bg-slate-100 rounded-2xl border border-slate-200" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map(({ label, value, icon: Icon, color, bg }) => (
-          <div key={label} className="bg-white rounded-xl border border-slate-200 p-5 flex items-center gap-4">
-            <div className={`${bg} p-3 rounded-xl`}>
-              <Icon className={`${color.replace("bg-", "text-")} w-5 h-5`} />
+    <div className="space-y-10 animate-fade-in-up">
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        {mainStats.map((stat) => (
+          <div key={stat.label} className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 relative group overflow-hidden">
+            <div className={`absolute top-0 left-0 w-1 h-full ${stat.color.replace("text-", "bg-")}`} />
+            <div className="flex items-center justify-between mb-4">
+              <div className={`${stat.bg} p-3 rounded-xl group-hover:scale-110 transition-transform`}>
+                <stat.icon size={20} className={stat.color} />
+              </div>
             </div>
-            <div>
-              <p className="text-2xl font-bold text-slate-800">{value}</p>
-              <p className="text-xs text-slate-500 mt-0.5">{label}</p>
-            </div>
+            <p className="text-2xl font-extrabold text-slate-900 leading-none">{stat.value}</p>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">{stat.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Recent Leads */}
-      <div className="bg-white rounded-xl border border-slate-200">
-        <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="font-semibold text-slate-800">Recent Leads</h2>
-          <a href="/leads" className="text-sm text-indigo-600 hover:underline font-medium">
-            View all →
-          </a>
+      {/* Visual Pipeline Runner */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+           <div className="flex items-center gap-2">
+            <BarChart3 className="text-indigo-600" size={18} />
+            <h2 className="text-[11px] font-extrabold text-slate-900 tracking-widest uppercase text-shadow-sm">Your Sales Pipeline</h2>
+          </div>
+          <Link href="/kanban" className="text-[10px] font-black text-indigo-600 hover:text-indigo-400 uppercase tracking-[0.2em] underline decoration-indigo-200 decoration-2 underline-offset-4">Open Kanban Workspace</Link>
         </div>
 
-        {recentLeads.length === 0 ? (
-          <div className="py-16 text-center text-slate-400">
-            <Users className="mx-auto mb-3 w-10 h-10 opacity-30" />
-            <p className="text-sm">No leads yet. Add your first lead!</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-100">
-            {recentLeads.map((lead: Lead) => (
-              <div key={lead._id} className="px-6 py-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-semibold text-sm">
-                    {lead.firstName[0]}{lead.lastName[0]}
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8 overflow-x-auto custom-scrollbar">
+          <div className="flex items-center gap-4 min-w-[1200px]">
+            {STAGE_CONFIG.map((stage, idx) => (
+               <Link 
+                key={stage.name} 
+                href={`/leads?status=${stage.name}`} 
+                className="flex-1 bg-slate-50 border border-slate-100 p-5 rounded-2xl hover:bg-white hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 group relative"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`${stage.color} text-white p-2 rounded-xl shadow-lg`}>
+                    <stage.icon size={16} />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-slate-800">
-                      {lead.firstName} {lead.lastName}
-                    </p>
-                    <p className="text-xs text-slate-500">{lead.company ?? lead.email}</p>
-                  </div>
+                  <span className="text-xl font-black text-slate-900">{pipelineStats[stage.name] || 0}</span>
                 </div>
-                <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${statusColors[lead.status] ?? "bg-slate-100 text-slate-600"}`}>
-                  {lead.status}
-                </span>
-              </div>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-tight group-hover:text-indigo-600 leading-tight">LEAD: {stage.name}</p>
+                {idx < STAGE_CONFIG.length - 1 && (
+                  <div className="absolute top-1/2 -right-3 transform -translate-y-1/2 text-slate-200 group-hover:text-indigo-400 transition-colors z-20">
+                    <ArrowRight size={14} />
+                  </div>
+                )}
+              </Link>
             ))}
           </div>
-        )}
+        </div>
+      </div>
+
+      {/* Recent Leads Feed */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-2">
+          <div className="flex items-center gap-2">
+            <Users className="text-indigo-600" size={18} />
+            <h2 className="text-[11px] font-extrabold text-slate-900 tracking-widest uppercase">Lead Intelligence Feed</h2>
+          </div>
+          <Link href="/leads" className="text-[10px] font-black text-slate-400 hover:text-indigo-600 uppercase tracking-[0.2em] transition">View Full Roster</Link>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
+          {recentLeads.length === 0 ? (
+            <div className="py-20 text-center text-slate-400">
+              <Users className="mx-auto mb-4 w-12 h-12 opacity-20" />
+              <p className="text-[10px] font-black uppercase tracking-widest">No leads assigned to your profile yet.</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {recentLeads.map((lead: Lead) => (
+                <div key={lead._id} className="px-8 py-5 flex items-center justify-between hover:bg-slate-50/50 transition-all group">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-slate-900 flex items-center justify-center text-white font-black text-sm shadow-lg group-hover:scale-110 transition cursor-default">
+                      {lead.firstName[0]}{lead.lastName[0]}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-black text-slate-900 uppercase tracking-tight group-hover:text-indigo-600 transition">
+                        {lead.firstName} {lead.lastName}
+                      </h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase mt-0.5 tracking-wider">{lead.company || "Individual Opportunity"}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center gap-6">
+                    <span className={`inline-flex items-center gap-2 text-[9px] font-black uppercase tracking-[0.15em] px-4 py-1.5 rounded-full border shadow-sm ${
+                      lead.status === 'Won' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' :
+                      lead.status === 'Lost' ? 'bg-rose-50 text-rose-600 border-rose-100' :
+                      'bg-slate-50 text-slate-600 border-slate-100'
+                    }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${
+                        lead.status === 'Won' ? 'bg-emerald-500' :
+                        lead.status === 'Lost' ? 'bg-rose-500' :
+                        'bg-slate-400'
+                      }`} />
+                      LEAD: {lead.status}
+                    </span>
+                    <Link href={`/leads/${lead._id}`} className="p-3 bg-white border border-slate-100 text-slate-400 rounded-xl hover:bg-slate-900 hover:text-white hover:border-slate-900 transition shadow-sm active:scale-95 group/btn">
+                      <Eye size={16} className="group-hover/btn:rotate-12 transition" />
+                    </Link>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

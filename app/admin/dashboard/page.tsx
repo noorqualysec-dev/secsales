@@ -18,7 +18,8 @@ import {
   UserPlus,
   Target,
   BarChart3,
-  ArrowRight
+  ArrowRight,
+  FileText
 } from "lucide-react";
 import Link from "next/link";
 
@@ -46,8 +47,10 @@ export default function AdminDashboard() {
 
   const pipelineStages = [
     { name: "Lead Captured", color: "bg-slate-500", icon: Target },
-    { name: "Contacted", color: "bg-blue-500", icon: Activity },
-    { name: "Qualified", color: "bg-indigo-500", icon: ShieldCheck },
+    { name: "Discovery Call Scheduled", color: "bg-blue-500", icon: Activity },
+    { name: "Requirement Gathering", color: "bg-indigo-500", icon: ShieldCheck },
+    { name: "Pre-Assessment Form Sent", color: "bg-violet-500", icon: FileText },
+    { name: "Proposal Preparation", color: "bg-purple-500", icon: BarChart3 },
     { name: "Proposal Sent", color: "bg-amber-500", icon: HandCoins },
     { name: "Negotiation", color: "bg-orange-500", icon: Clock },
     { name: "Won", color: "bg-emerald-500", icon: TrendingUp },
@@ -58,7 +61,7 @@ export default function AdminDashboard() {
 
   if (userLoading || leadLoading || proposalLoading || statsLoading) {
     return (
-      <div className="space-y-8 animate-pulse">
+      <div className="space-y-8 animate-pulse text-slate-400">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="h-32 bg-slate-200 rounded-2xl border border-slate-100 shadow-sm" />
@@ -94,25 +97,26 @@ export default function AdminDashboard() {
             <BarChart3 className="text-indigo-600" size={18} />
             <h2 className="text-[11px] font-extrabold text-slate-900 tracking-widest uppercase">Lead Lifecycle Pipeline</h2>
           </div>
+          <Link href="/admin/kanban" className="text-[10px] font-black text-indigo-600 hover:text-indigo-400 uppercase tracking-[0.2em] underline decoration-indigo-200 decoration-2 underline-offset-4">Open Kanban View</Link>
         </div>
 
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm p-6 overflow-x-auto">
-          <div className="flex items-center gap-4 min-w-[1000px]">
+        <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-8 overflow-x-auto custom-scrollbar">
+          <div className="flex items-center gap-4 min-w-[1200px]">
             {pipelineStages.map((stage, idx) => (
                <Link 
                 key={stage.name} 
                 href={`/admin/leads?status=${stage.name}`} 
-                className="flex-1 bg-slate-50 border border-slate-100 p-4 rounded-xl hover:bg-white hover:border-indigo-200 hover:shadow-lg hover:shadow-indigo-500/5 transition-all duration-300 group relative"
+                className="flex-1 bg-slate-50 border border-slate-100 p-5 rounded-2xl hover:bg-white hover:border-indigo-200 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300 group relative"
               >
-                <div className="flex items-center justify-between mb-3">
-                  <div className={`${stage.color} text-white p-2 rounded-lg`}>
+                <div className="flex items-center justify-between mb-4">
+                  <div className={`${stage.color} text-white p-2 rounded-xl shadow-lg`}>
                     <stage.icon size={16} />
                   </div>
-                  <span className="text-lg font-black text-slate-900">{stats[stage.name] || 0}</span>
+                  <span className="text-xl font-black text-slate-900">{stats[stage.name] || 0}</span>
                 </div>
-                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight truncate group-hover:text-indigo-600">{stage.name}</p>
+                <p className="text-[9px] font-black text-slate-500 uppercase tracking-tight group-hover:text-indigo-600">LEAD: {stage.name}</p>
                 {idx < pipelineStages.length - 1 && (
-                  <div className="absolute top-1/2 -right-3 transform -translate-y-1/2 text-slate-300 group-hover:text-indigo-400 transition-colors">
+                  <div className="absolute top-1/2 -right-3 transform -translate-y-1/2 text-slate-200 group-hover:text-indigo-400 transition-colors z-20">
                     <ArrowRight size={14} />
                   </div>
                 )}

@@ -6,6 +6,7 @@ import { LayoutDashboard, Users, FileText, X } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/kanban", label: "Lead Kanban", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: Users },
   { href: "/proposals", label: "Proposals", icon: FileText },
 ];

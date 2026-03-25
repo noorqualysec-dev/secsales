@@ -20,6 +20,7 @@ interface AdminSidebarProps {
 
 const navItems = [
   { name: "Overview", href: "/admin/dashboard", icon: LayoutDashboard },
+  { name: "Lead Kanban", href: "/admin/kanban", icon: LayoutDashboard },
   { name: "Manage Users", href: "/admin/users", icon: Users },
   { name: "All Leads", href: "/admin/leads", icon: Database },
   { name: "All Proposals", href: "/admin/proposals", icon: FileCheck },

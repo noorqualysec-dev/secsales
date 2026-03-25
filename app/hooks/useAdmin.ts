@@ -86,3 +86,15 @@ export function useAssignLead() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ADMIN_LEADS_KEY }),
   });
 }
+
+export function useUpdateLeadStatus() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ leadId, status }: { leadId: string; status: string }) =>
+      api.put(`/admin/leads/${leadId}/status`, { status }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_LEADS_KEY });
+      queryClient.invalidateQueries({ queryKey: ADMIN_STATS_KEY });
+    },
+  });
+}
