@@ -7,17 +7,17 @@ import {
   Plus, 
   Pencil, 
   Trash2, 
-  Users, 
   History, 
   X, 
   CheckCircle2, 
   Clock, 
   MessageSquare, 
-  UserPlus, 
-  ArrowRightLeft,
-  Building2,
-  Briefcase
+  Eye,
+  Briefcase,
+  Users,
+  UserPlus
 } from "lucide-react";
+import Link from "next/link";
 
 // ── Configuration ────────────────────────────────────────────────────────────
 
@@ -47,69 +47,6 @@ const statusColors: Record<string, string> = {
 };
 
 // ── Components ───────────────────────────────────────────────────────────────
-
-function TimelineModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
-  const getEventIcon = (event: string) => {
-    switch (event) {
-      case "Creation": return <Plus className="w-4 h-4" />;
-      case "Status Change": return <History className="w-4 h-4" />;
-      case "Remark Added": return <MessageSquare className="w-4 h-4" />;
-      case "Assigned": return <UserPlus className="w-4 h-4" />;
-      case "Won": return <CheckCircle2 className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[85vh]">
-        <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">Lead Lifecycle</h2>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">Timeline for {lead.firstName} {lead.lastName}</p>
-          </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl text-slate-400 transition">
-            <X size={20} />
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-8 custom-scrollbar">
-          <div className="space-y-8 relative before:absolute before:inset-0 before:left-[19px] before:w-0.5 before:bg-slate-100 before:h-full">
-            {[...(lead.timeline || [])].reverse().map((ev, i) => (
-              <div key={i} className="relative pl-12 group">
-                <div className={`absolute left-0 w-10 h-10 rounded-2xl flex items-center justify-center border-4 border-white shadow-sm z-10 transition-transform group-hover:scale-110 ${
-                   ev.event === 'Won' ? 'bg-emerald-100 text-emerald-600' : 
-                   ev.event === 'Lost' ? 'bg-rose-100 text-rose-600' : 'bg-indigo-50 text-indigo-600'
-                }`}>
-                  {getEventIcon(ev.event)}
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-extrabold text-slate-900 uppercase tracking-tight">{ev.event}</p>
-                    <p className="text-[10px] font-bold text-slate-400">{new Date(ev.timestamp).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
-                  </div>
-                  {ev.status && (
-                    <span className="inline-block text-[10px] font-extrabold bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full border border-slate-200 uppercase tracking-tighter">
-                      SHIFTD TO: {ev.status}
-                    </span>
-                  )}
-                  {ev.remark && (
-                    <p className="text-xs font-medium text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100 italic">
-                      "{ev.remark}"
-                    </p>
-                  )}
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest pt-1 flex items-center gap-1">
-                     <Clock size={10} /> BY {typeof ev.performedBy === 'object' ? ev.performedBy.name : 'Unknown User'}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const emptyForm = {
   firstName: "", lastName: "", email: "", phone: "",
@@ -246,7 +183,6 @@ export default function LeadsPage() {
   const deleteLead = useDeleteLead();
 
   const [modal, setModal] = useState<{ open: boolean; lead?: Lead }>({ open: false });
-  const [timelineLead, setTimelineLead] = useState<Lead | null>(null);
 
   const leads = data?.data ?? [];
 
@@ -287,8 +223,6 @@ export default function LeadsPage() {
           isSaving={createLead.isPending || updateLead.isPending}
         />
       )}
-
-      {timelineLead && <TimelineModal lead={timelineLead} onClose={() => setTimelineLead(null)} />}
 
       <div className="space-y-8 animate-fade-in-up">
         {/* Header toolbar */}
@@ -370,13 +304,13 @@ export default function LeadsPage() {
                       </td>
                       <td className="px-10 py-6">
                         <div className="flex items-center gap-3 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                          <button
-                            onClick={() => setTimelineLead(lead)}
+                          <Link
+                            href={`/leads/${lead._id}`}
                             className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:shadow-md transition-all duration-300"
-                            title="View Lifecycle Timeline"
+                            title="View Full Journey"
                           >
-                            <History size={16} />
-                          </button>
+                            <Eye size={16} />
+                          </Link>
                           <button
                             onClick={() => setModal({ open: true, lead })}
                             className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:border-indigo-400 hover:text-indigo-600 hover:shadow-md transition-all duration-300"

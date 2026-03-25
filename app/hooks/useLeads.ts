@@ -38,3 +38,14 @@ export function useDeleteLead() {
     onSuccess: () => qc.invalidateQueries({ queryKey: LEADS_KEY }),
   });
 }
+
+export function useLeadJourney(id: string) {
+  return useQuery<ApiResponse<{ lead: Lead; assignedUser: any; proposals: any[] }>>({
+    queryKey: [...LEADS_KEY, id, "journey"],
+    queryFn: async () => {
+      const res = await api.get<ApiResponse<{ lead: Lead; assignedUser: any; proposals: any[] }>>(`/leads/${id}/journey`);
+      return res.data;
+    },
+    enabled: !!id,
+  });
+}
