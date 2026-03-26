@@ -39,6 +39,14 @@ export function useDeleteLead() {
   });
 }
 
+export function useBulkImportLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (leads: any[]) => api.post("/leads/bulk", { leads }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: LEADS_KEY }),
+  });
+}
+
 export function useLeadJourney(id: string) {
   return useQuery<ApiResponse<{ lead: Lead; assignedUser: any; proposals: any[] }>>({
     queryKey: [...LEADS_KEY, id, "journey"],

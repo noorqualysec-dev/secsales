@@ -1,26 +1,16 @@
 "use client";
 
-import { useState } from "react";
-import { useLeads, useCreateLead, useUpdateLead, useDeleteLead } from "@/app/hooks/useLeads";
-import type { Lead, LeadStatus, LeadSource, TimelineEvent } from "@/app/types";
-import { 
-  Plus, 
-  Pencil, 
-  Trash2, 
-  History, 
-  X, 
-  CheckCircle2, 
-  Clock, 
-  MessageSquare, 
-  Eye,
-  Briefcase,
-  Users,
-  UserPlus,
-  Building2
+import { useState, useRef } from "react";
+import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useBulkImportLeads } from "@/app/hooks/useLeads";
+import type { Lead, LeadStatus, LeadSource } from "@/app/types";
+import Papa from "papaparse";
+import {
+  Plus, Pencil, Trash2, X, CheckCircle2, Eye,
+  Briefcase, Users, Building2, Upload, Download, AlertCircle
 } from "lucide-react";
 import Link from "next/link";
 
-// ── Configuration ────────────────────────────────────────────────────────────
+// ── Configuration ─────────────────────────────────────────────────────────────
 
 const LEAD_STATUSES: LeadStatus[] = [
   "Lead Captured", "Discovery Call Scheduled", "Requirement Gathering",
@@ -47,7 +37,57 @@ const statusColors: Record<string, string> = {
   "Lost": "bg-rose-50 text-rose-600 border-rose-100",
 };
 
-// ── Components ───────────────────────────────────────────────────────────────
+// ── Utilities ─────────────────────────────────────────────────────────────────
+
+function exportLeadsToCSV(leads: Lead[]) {
+  const esc = (v: any) => {
+    if (v == null) return "";
+    const s = String(v);
+    return s.includes(",") || s.includes('"') || s.includes("\n")
+      ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+  const headers = [
+    "First Name", "Last Name", "Email", "Phone", "Designation",
+    "Company", "Industry", "Country", "Employee Strength",
+    "Status", "Source", "Deal Value", "Closing Date", "Remarks",
+  ];
+  const rows = leads.map((l: Lead) => [
+    l.firstName, l.lastName, l.email, l.phone ?? "",
+    l.designation ?? "", l.company ?? "", l.industry ?? "",
+    l.country ?? "", l.employeeStrength ?? "",
+    l.status, l.source,
+    l.dealValue ?? "",
+    l.closingDate ? new Date(l.closingDate).toISOString().split("T")[0] : "",
+    l.latestRemark ?? "",
+  ].map(esc).join(","));
+  const csv = [headers.join(","), ...rows].join("\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `leads_${new Date().toISOString().split("T")[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const CSV_FIELD_MAP: Record<string, string> = {
+  "first name": "firstName", "firstname": "firstName", "first_name": "firstName",
+  "last name": "lastName", "lastname": "lastName", "last_name": "lastName",
+  "email": "email", "email address": "email", "email_address": "email",
+  "phone": "phone", "phone number": "phone", "mobile": "phone",
+  "company": "company", "company name": "company", "organization": "company",
+  "designation": "designation", "title": "designation", "job title": "designation",
+  "industry": "industry", "industry sector": "industry",
+  "country": "country",
+  "employee strength": "employeeStrength", "employees": "employeeStrength", "employee_strength": "employeeStrength",
+  "status": "status", "pipeline state": "status",
+  "source": "source", "lead source": "source",
+  "deal value": "dealValue", "value": "dealValue", "deal_value": "dealValue",
+  "closing date": "closingDate", "closing_date": "closingDate",
+  "remarks": "latestRemark", "notes": "latestRemark", "remark": "latestRemark", "latest remark": "latestRemark",
+};
+
+// ── Components ────────────────────────────────────────────────────────────────
 
 const emptyForm = {
   firstName: "", lastName: "", email: "", phone: "",
@@ -57,18 +97,19 @@ const emptyForm = {
   source: "website" as LeadSource,
   latestRemark: "",
   closingDate: 0,
-  dealValue: 0
+  dealValue: 0,
 };
 
-function LeadModal({ initial, onSave, onClose, isSaving }: { 
-  initial: typeof emptyForm; 
-  onSave: (d: typeof emptyForm) => void; 
-  onClose: () => void; 
+function LeadModal({ initial, onSave, onClose, isSaving }: {
+  initial: typeof emptyForm;
+  onSave: (d: typeof emptyForm) => void;
+  onClose: () => void;
   isSaving: boolean;
 }) {
   const [form, setForm] = useState(initial);
-  const set = (k: keyof typeof emptyForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
-    setForm((f) => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof emptyForm) =>
+    (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
+      setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const sectionLabelCls = "text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] mb-4 mt-6 first:mt-0 flex items-center gap-2";
   const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 focus:bg-white transition-all duration-300";
@@ -88,9 +129,7 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
             <X size={24} />
           </button>
         </div>
-
         <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="overflow-y-auto px-10 py-8 custom-scrollbar space-y-8">
-          
           <div>
             <h3 className={sectionLabelCls}><Users size={14} /> Identity & Contact</h3>
             <div className="grid grid-cols-2 gap-6">
@@ -107,8 +146,8 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                 <input className={inputCls} type="email" value={form.email} onChange={set("email")} required placeholder="example@corporate.com" />
               </div>
               <div>
-                 <label className={labelCls}>Designation</label>
-                 <input className={inputCls} value={form.designation} onChange={set("designation")} placeholder="C-Level, VP, etc." />
+                <label className={labelCls}>Designation</label>
+                <input className={inputCls} value={form.designation} onChange={set("designation")} placeholder="C-Level, VP, etc." />
               </div>
               <div>
                 <label className={labelCls}>Phone Line</label>
@@ -116,63 +155,60 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
               </div>
             </div>
           </div>
-
           <div>
             <h3 className={sectionLabelCls}><Building2 size={14} /> Organization Profile</h3>
             <div className="grid grid-cols-2 gap-6">
-               <div className="col-span-2">
+              <div className="col-span-2">
                 <label className={labelCls}>Company Legal Name</label>
                 <input className={inputCls} value={form.company} onChange={set("company")} placeholder="Global Tech Corp" />
               </div>
-               <div>
+              <div>
                 <label className={labelCls}>Employee Strength</label>
                 <select className={inputCls} value={form.employeeStrength} onChange={set("employeeStrength")}>
                   <option value="">Select Scale</option>
                   {EMPLOYEE_STRENGTHS.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
-               <div>
+              <div>
                 <label className={labelCls}>Industry Sector</label>
                 <input className={inputCls} value={form.industry} onChange={set("industry")} placeholder="Fintech, SaaS, etc." />
               </div>
             </div>
           </div>
-
           <div>
-             <h3 className={sectionLabelCls}><Briefcase size={14} /> Pipeline Strategy</h3>
-             <div className="grid grid-cols-2 gap-6">
-                <div>
-                  <label className={labelCls}>Pipeline State</label>
-                  <select className={inputCls} value={form.status} onChange={set("status")}>
-                    {LEAD_STATUSES.map(s => <option key={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Discovery Source</label>
-                  <select className={inputCls} value={form.source} onChange={set("source")}>
-                    {LEAD_SOURCES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ').toUpperCase()}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Estimated Closing Date</label>
-                  <input className={inputCls} type="date" value={form.closingDate ? new Date(form.closingDate).toISOString().split('T')[0] : ""} onChange={(e) => setForm(f => ({ ...f, closingDate: new Date(e.target.value).getTime() }))} />
-                </div>
-                <div>
-                   <label className={labelCls}>Estimated Deal Value (INR)</label>
-                   <input className={inputCls} type="number" value={form.dealValue || ""} onChange={(e) => setForm(f => ({ ...f, dealValue: Number(e.target.value) }))} placeholder="50000" />
-                </div>
-                <div className="col-span-2">
-                   <label className={labelCls}>{initial.firstName ? "Current Remarks / Updates" : "Initial Remarks"}</label>
-                   <textarea 
-                    className={`${inputCls} h-32 resize-none pt-4`} 
-                    value={form.latestRemark} 
-                    onChange={set("latestRemark")}
-                    placeholder="Enter strategic notes about this state change..."
-                   />
-                </div>
-             </div>
+            <h3 className={sectionLabelCls}><Briefcase size={14} /> Pipeline Strategy</h3>
+            <div className="grid grid-cols-2 gap-6">
+              <div>
+                <label className={labelCls}>Pipeline State</label>
+                <select className={inputCls} value={form.status} onChange={set("status")}>
+                  {LEAD_STATUSES.map(s => <option key={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Discovery Source</label>
+                <select className={inputCls} value={form.source} onChange={set("source")}>
+                  {LEAD_SOURCES.map(s => <option key={s} value={s}>{s.replace(/_/g, " ").toUpperCase()}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Estimated Closing Date</label>
+                <input className={inputCls} type="date" value={form.closingDate ? new Date(form.closingDate).toISOString().split("T")[0] : ""} onChange={(e) => setForm(f => ({ ...f, closingDate: new Date(e.target.value).getTime() }))} />
+              </div>
+              <div>
+                <label className={labelCls}>Estimated Deal Value (INR)</label>
+                <input className={inputCls} type="number" value={form.dealValue || ""} onChange={(e) => setForm(f => ({ ...f, dealValue: Number(e.target.value) }))} placeholder="50000" />
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>{initial.firstName ? "Current Remarks / Updates" : "Initial Remarks"}</label>
+                <textarea
+                  className={`${inputCls} h-32 resize-none pt-4`}
+                  value={form.latestRemark}
+                  onChange={set("latestRemark")}
+                  placeholder="Enter strategic notes about this state change..."
+                />
+              </div>
+            </div>
           </div>
-
           <div className="flex gap-4 pt-6 sticky bottom-0 bg-white pb-2">
             <button type="button" onClick={onClose} className="flex-1 px-8 py-4 rounded-2xl border border-slate-200 text-slate-500 font-extrabold text-xs uppercase tracking-widest hover:bg-slate-50 transition active:scale-95 shadow-sm">
               Cancel
@@ -187,13 +223,221 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
   );
 }
 
+function ImportModal({ onClose, onImport, isImporting, result }: {
+  onClose: () => void;
+  onImport: (leads: any[]) => void;
+  isImporting: boolean;
+  result: { imported: number; skipped: number } | null;
+}) {
+  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [fileName, setFileName] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = (file: File) => {
+    if (!file.name.endsWith(".csv")) { alert("Please upload a .csv file"); return; }
+    setFileName(file.name);
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (res: any) => {
+        const mapped = (res.data as any[]).map((row: any) => {
+          const lead: any = {};
+          Object.entries(row).forEach(([key, val]) => {
+            const fieldName = CSV_FIELD_MAP[key.trim().toLowerCase()];
+            if (!fieldName) return;
+            if (fieldName === "closingDate") lead[fieldName] = val ? (new Date(val as string).getTime() || 0) : 0;
+            else if (fieldName === "dealValue") lead[fieldName] = Number(val) || 0;
+            else lead[fieldName] = val;
+          });
+          return lead;
+        });
+        setParsedRows(mapped);
+      },
+    });
+  };
+
+  const downloadTemplate = () => {
+    const csv = [
+      "First Name,Last Name,Email,Phone,Designation,Company,Industry,Country,Employee Strength,Status,Source,Deal Value,Closing Date,Remarks",
+      "John,Doe,john@example.com,+91 9999999999,CTO,Tech Corp,SaaS,India,51-200,Lead Captured,linkedin,500000,2026-04-30,Interested in security audit",
+    ].join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "leads_import_template.csv"; a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const validRows = parsedRows.filter(r => r.firstName && r.email);
+  const invalidCount = parsedRows.length - validRows.length;
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
+      <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
+        <div className="px-10 py-8 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h2 className="text-2xl font-extrabold text-slate-900 tracking-tight">Import Leads</h2>
+            <p className="text-slate-500 text-sm font-medium mt-1">Upload a CSV to bulk import leads into the pipeline.</p>
+          </div>
+          <button onClick={onClose} className="p-3 hover:bg-slate-50 rounded-2xl text-slate-400 transition-all duration-300 hover:rotate-90">
+            <X size={24} />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto px-10 py-8 space-y-6 flex-1">
+          {result ? (
+            /* ── Success state ── */
+            <div className="flex flex-col items-center justify-center py-12 gap-6">
+              <div className="w-20 h-20 bg-emerald-50 rounded-4xl flex items-center justify-center">
+                <CheckCircle2 size={40} className="text-emerald-500" />
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-black text-slate-900">{result.imported} Leads Imported</p>
+                {result.skipped > 0 && (
+                  <p className="text-sm text-slate-400 mt-2">
+                    {result.skipped} rows skipped — duplicates or missing required fields
+                  </p>
+                )}
+              </div>
+              <button onClick={onClose} className="px-8 py-4 bg-indigo-600 text-white rounded-2xl font-extrabold text-xs uppercase tracking-widest hover:bg-slate-900 transition active:scale-95">
+                Done
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* ── Drop zone ── */}
+              <div
+                onClick={() => fileRef.current?.click()}
+                onDragOver={e => e.preventDefault()}
+                onDrop={e => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) handleFile(f); }}
+                className="border-2 border-dashed border-slate-200 rounded-3xl p-10 text-center cursor-pointer hover:border-indigo-400 hover:bg-indigo-50/30 transition-all group"
+              >
+                <Upload size={32} className="mx-auto text-slate-300 group-hover:text-indigo-500 mb-3 transition" />
+                {fileName ? (
+                  <p className="font-extrabold text-slate-700 text-sm">{fileName}</p>
+                ) : (
+                  <>
+                    <p className="font-extrabold text-slate-500">Drop your CSV here or <span className="text-indigo-600">click to browse</span></p>
+                    <p className="text-xs text-slate-400 mt-1">Only .csv files accepted</p>
+                  </>
+                )}
+                <input ref={fileRef} type="file" accept=".csv" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
+              </div>
+
+              {/* ── Template download ── */}
+              <div className="flex items-center justify-between bg-slate-50 rounded-2xl px-6 py-4">
+                <div>
+                  <p className="text-xs font-extrabold text-slate-700">First time? Download our template</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Pre-formatted CSV with the correct column headers</p>
+                </div>
+                <button onClick={downloadTemplate}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white border border-slate-200 rounded-xl text-xs font-extrabold text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition shadow-sm">
+                  <Download size={14} /> Template
+                </button>
+              </div>
+
+              {/* ── Preview table ── */}
+              {parsedRows.length > 0 && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
+                      {parsedRows.length} rows found · {validRows.length} valid
+                    </p>
+                    {invalidCount > 0 && (
+                      <span className="flex items-center gap-1.5 text-[10px] font-bold text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full border border-amber-100">
+                        <AlertCircle size={11} /> {invalidCount} invalid rows will be skipped
+                      </span>
+                    )}
+                  </div>
+                  <div className="border border-slate-100 rounded-2xl overflow-hidden overflow-x-auto">
+                    <table className="w-full text-xs min-w-[560px]">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-400 text-[9px] font-extrabold uppercase tracking-widest">
+                          <th className="px-4 py-3 text-left">First Name</th>
+                          <th className="px-4 py-3 text-left">Last Name</th>
+                          <th className="px-4 py-3 text-left">Email</th>
+                          <th className="px-4 py-3 text-left">Company</th>
+                          <th className="px-4 py-3 text-left">Status</th>
+                          <th className="px-4 py-3 text-center">Valid</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-50">
+                        {parsedRows.slice(0, 8).map((row, i) => {
+                          const isValid = !!(row.firstName && row.email);
+                          return (
+                            <tr key={i} className={isValid ? "" : "bg-rose-50/40"}>
+                              <td className="px-4 py-2.5 font-bold text-slate-700">
+                                {row.firstName || <span className="text-rose-400 italic text-[10px]">missing</span>}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500">{row.lastName || "—"}</td>
+                              <td className="px-4 py-2.5 text-slate-500">
+                                {row.email || <span className="text-rose-400 italic text-[10px]">missing</span>}
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-500">{row.company || "—"}</td>
+                              <td className="px-4 py-2.5">
+                                <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[9px] font-bold">
+                                  {row.status || "Lead Captured"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                {isValid
+                                  ? <CheckCircle2 size={14} className="text-emerald-500 mx-auto" />
+                                  : <AlertCircle size={14} className="text-rose-400 mx-auto" />
+                                }
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        {parsedRows.length > 8 && (
+                          <tr>
+                            <td colSpan={6} className="px-4 py-3 text-center text-[10px] text-slate-400 italic bg-slate-50/50">
+                              +{parsedRows.length - 8} more rows not shown in preview
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {!result && (
+          <div className="px-10 py-6 border-t border-slate-100 flex gap-4 shrink-0">
+            <button onClick={onClose} className="flex-1 px-8 py-4 rounded-2xl border border-slate-200 text-slate-500 font-extrabold text-xs uppercase tracking-widest hover:bg-slate-50 transition active:scale-95">
+              Cancel
+            </button>
+            <button
+              disabled={validRows.length === 0 || isImporting}
+              onClick={() => onImport(validRows)}
+              className="flex-1 px-8 py-4 rounded-2xl bg-indigo-600 text-white font-extrabold text-xs uppercase tracking-widest hover:bg-slate-800 transition active:scale-95 shadow-xl shadow-indigo-500/10 disabled:opacity-40"
+            >
+              {isImporting ? "Importing..." : `Import ${validRows.length} Lead${validRows.length !== 1 ? "s" : ""} →`}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Main Page ─────────────────────────────────────────────────────────────────
+
 export default function LeadsPage() {
   const { data, isLoading, error } = useLeads();
   const createLead = useCreateLead();
   const updateLead = useUpdateLead();
   const deleteLead = useDeleteLead();
+  const bulkImport = useBulkImportLeads();
 
   const [modal, setModal] = useState<{ open: boolean; lead?: Lead }>({ open: false });
+  const [importModal, setImportModal] = useState<{
+    open: boolean;
+    result: { imported: number; skipped: number } | null;
+  }>({ open: false, result: null });
 
   const leads = data?.data ?? [];
 
@@ -214,12 +458,20 @@ export default function LeadsPage() {
     }
   };
 
+  const handleImport = (rows: any[]) => {
+    bulkImport.mutate(rows, {
+      onSuccess: (res: any) => {
+        setImportModal({ open: true, result: res.data?.data ?? { imported: 0, skipped: 0 } });
+      },
+    });
+  };
+
   if (error) return (
-     <div className="bg-rose-50 border border-rose-200 rounded-3xl p-12 text-center text-rose-600 space-y-4">
-        <X size={48} className="mx-auto" />
-        <p className="font-extrabold text-sm uppercase tracking-widest">Global Sync Failed</p>
-        <p className="text-sm font-medium opacity-70">Encountered an error fetching the lead database. Reconnecting...</p>
-     </div>
+    <div className="bg-rose-50 border border-rose-200 rounded-3xl p-12 text-center text-rose-600 space-y-4">
+      <X size={48} className="mx-auto" />
+      <p className="font-extrabold text-sm uppercase tracking-widest">Global Sync Failed</p>
+      <p className="text-sm font-medium opacity-70">Encountered an error fetching the lead database. Reconnecting...</p>
+    </div>
   );
 
   return (
@@ -233,13 +485,22 @@ export default function LeadsPage() {
             industry: modal.lead.industry ?? "", status: modal.lead.status,
             source: modal.lead.source, designation: modal.lead.designation ?? "",
             employeeStrength: modal.lead.employeeStrength ?? "",
-            latestRemark: "", 
+            latestRemark: "",
             closingDate: modal.lead.closingDate || 0,
-            dealValue: modal.lead.dealValue || 0
+            dealValue: modal.lead.dealValue || 0,
           } : emptyForm}
           onSave={handleSave}
           onClose={() => setModal({ open: false })}
           isSaving={createLead.isPending || updateLead.isPending}
+        />
+      )}
+
+      {importModal.open && (
+        <ImportModal
+          onClose={() => setImportModal({ open: false, result: null })}
+          onImport={handleImport}
+          isImporting={bulkImport.isPending}
+          result={importModal.result}
         />
       )}
 
@@ -250,25 +511,44 @@ export default function LeadsPage() {
             <h2 className="text-sm font-extrabold text-slate-500 uppercase tracking-[0.2em] mb-1 flex items-center gap-2">
               <Plus size={16} /> Internal Lead Management
             </h2>
-            <p className="text-xl font-extrabold text-slate-900 tracking-tight">Active Pipeline Intelligence <span className="text-indigo-600 ml-2">[{leads.length}]</span></p>
+            <p className="text-xl font-extrabold text-slate-900 tracking-tight">
+              Active Pipeline Intelligence <span className="text-indigo-600 ml-2">[{leads.length}]</span>
+            </p>
           </div>
-          <button
-            onClick={() => setModal({ open: true })}
-            className="w-full md:w-auto flex items-center justify-center gap-3 bg-indigo-600 hover:bg-slate-900 text-white px-4 py-2 rounded-[2rem] text-sm font-extrabold uppercase tracking-widest transition-all duration-500 hover:scale-105 active:scale-95 shadow-xl shadow-indigo-500/20"
-          >
-            <Plus size={16} /> Add Intelligence
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => exportLeadsToCSV(leads)}
+              disabled={leads.length === 0}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm font-extrabold text-slate-600 hover:text-indigo-600 hover:border-indigo-300 uppercase tracking-widest transition shadow-sm disabled:opacity-40 active:scale-95"
+            >
+              <Download size={15} /> Export CSV
+            </button>
+            <button
+              onClick={() => setImportModal({ open: true, result: null })}
+              className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-200 rounded-2xl text-sm font-extrabold text-slate-600 hover:text-indigo-600 hover:border-indigo-300 uppercase tracking-widest transition shadow-sm active:scale-95"
+            >
+              <Upload size={15} /> Import CSV
+            </button>
+            <button
+              onClick={() => setModal({ open: true })}
+              className="flex items-center justify-center gap-3 bg-indigo-600 hover:bg-slate-900 text-white px-5 py-2.5 rounded-4xl text-sm font-extrabold uppercase tracking-widest transition-all duration-500 hover:scale-105 active:scale-95 shadow-xl shadow-indigo-500/20"
+            >
+              <Plus size={16} /> Add Intelligence
+            </button>
+          </div>
         </div>
 
-        {/* Global Monitor Table */}
+        {/* Leads Table */}
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-lg overflow-hidden transition-shadow duration-500 hover:shadow-2xl group/monitor">
           {isLoading ? (
             <div className="p-12 space-y-6">
-              {[...Array(6)].map((_, i) => <div key={i} className="h-20 bg-slate-50 rounded-[2rem] animate-pulse border border-slate-100" />)}
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="h-20 bg-slate-50 rounded-4xl animate-pulse border border-slate-100" />
+              ))}
             </div>
           ) : leads.length === 0 ? (
             <div className="py-24 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-slate-300">
+              <div className="w-20 h-20 bg-slate-50 rounded-4xl flex items-center justify-center mx-auto mb-6 text-slate-300">
                 <Users size={40} />
               </div>
               <p className="text-sm font-extrabold text-slate-400 uppercase tracking-widest">No Intelligence Data Detected</p>
@@ -292,34 +572,34 @@ export default function LeadsPage() {
                       <td className="px-10 py-6">
                         <div className="flex items-center gap-4">
                           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black border transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 ${
-                             lead.status === 'Won' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-indigo-50 text-indigo-600 border-indigo-100'
+                            lead.status === "Won" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-indigo-50 text-indigo-600 border-indigo-100"
                           }`}>
                             {lead.firstName[0]}
                           </div>
                           <div>
-                            <p className="text-sm font-black text-slate-900 tracking-tight transition-colors uppercase">{lead.firstName} {lead.lastName}</p>
+                            <p className="text-sm font-black text-slate-900 tracking-tight uppercase">{lead.firstName} {lead.lastName}</p>
                             <p className="text-xs font-bold text-slate-400 mt-0.5">{lead.designation || lead.email}</p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-10 py-6">
-                         <div className="space-y-0.5">
-                            <p className="text-xs font-bold text-slate-700 uppercase">{lead.company ?? "Privately Held"}</p>
-                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{lead.industry || "—"}</p>
-                         </div>
+                      <td className="px-10 py-6 hidden md:table-cell">
+                        <div className="space-y-0.5">
+                          <p className="text-xs font-bold text-slate-700 uppercase">{lead.company ?? "Privately Held"}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{lead.industry || "—"}</p>
+                        </div>
                       </td>
                       <td className="px-10 py-6">
-                         <span className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm transition-all duration-500 group-hover:scale-105 ${
-                           statusColors[lead.status] || "bg-slate-50 text-slate-600 border-slate-100"
-                         }`}>
-                           <div className={`w-1.5 h-1.5 rounded-full ${statusColors[lead.status]?.split(' ')[1].replace('text-', 'bg-')}`} />
-                           {lead.status}
-                         </span>
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm transition-all duration-500 group-hover:scale-105 ${
+                          statusColors[lead.status] || "bg-slate-50 text-slate-600 border-slate-100"
+                        }`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${statusColors[lead.status]?.split(" ")[1].replace("text-", "bg-")}`} />
+                          {lead.status}
+                        </span>
                       </td>
                       <td className="px-10 py-6 hidden lg:table-cell max-w-[200px]">
-                         <p className="text-xs font-medium text-slate-500 italic truncate" title={lead.latestRemark}>
-                           {lead.latestRemark ? `"${lead.latestRemark}"` : "No remarks recorded."}
-                         </p>
+                        <p className="text-xs font-medium text-slate-500 italic truncate" title={lead.latestRemark}>
+                          {lead.latestRemark ? `"${lead.latestRemark}"` : "No remarks recorded."}
+                        </p>
                       </td>
                       <td className="px-10 py-6">
                         <div className="flex items-center gap-3 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">

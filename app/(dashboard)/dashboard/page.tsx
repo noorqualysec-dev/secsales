@@ -568,7 +568,7 @@ export default function DashboardPage() {
                           }`}
                       >
                         {/* Date Badge */}
-                        <div className={`flex-shrink-0 w-10 flex flex-col items-center justify-center rounded-xl py-2 text-center
+                        <div className={`shrink-0 w-10 flex flex-col items-center justify-center rounded-xl py-2 text-center
                           ${isToday  ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
                           : isPast   ? "bg-slate-200 text-slate-500"
                           :            "bg-slate-900 text-white"}`}
@@ -582,31 +582,31 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Divider */}
-                        <div className={`w-px h-8 flex-shrink-0 ${isToday ? "bg-indigo-200" : "bg-slate-100"}`} />
+                        <div className={`w-px h-8 shrink-0 ${isToday ? "bg-indigo-200" : "bg-slate-100"}`} />
 
                         {/* Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
                             <p className="text-xs font-black text-slate-800 truncate leading-snug">{m.title}</p>
                             {isToday && (
-                              <span className="flex-shrink-0 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[7px] font-black rounded-full uppercase tracking-wide">
+                              <span className="shrink-0 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[7px] font-black rounded-full uppercase tracking-wide">
                                 Today
                               </span>
                             )}
                             {isTomorrow && !isToday && (
-                              <span className="flex-shrink-0 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[7px] font-black rounded-full uppercase tracking-wide">
+                              <span className="shrink-0 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[7px] font-black rounded-full uppercase tracking-wide">
                                 Tomorrow
                               </span>
                             )}
                             {isPast && (
-                              <span className="flex-shrink-0 px-1.5 py-0.5 bg-slate-100 text-slate-400 text-[7px] font-black rounded-full uppercase tracking-wide">
+                              <span className="shrink-0 px-1.5 py-0.5 bg-slate-100 text-slate-400 text-[7px] font-black rounded-full uppercase tracking-wide">
                                 Past
                               </span>
                             )}
                           </div>
                           {(m.leadName || m.company) && (
                             <div className="flex items-center gap-1.5">
-                              <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                              <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
                                 <span className="text-[7px] font-black text-slate-500">
                                   {(m.leadName || "?")[0].toUpperCase()}
                                 </span>
@@ -621,7 +621,7 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Time + Duration */}
-                        <div className="flex-shrink-0 text-right mr-1">
+                        <div className="shrink-0 text-right mr-1">
                           <p className={`text-xs font-black ${isToday ? "text-indigo-700" : "text-slate-700"}`}>
                             {fromDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                           </p>
@@ -631,7 +631,7 @@ export default function DashboardPage() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex-shrink-0 flex items-center gap-0.5">
+                        <div className="shrink-0 flex items-center gap-0.5">
                           <button
                             onClick={() => setModal({ type: "meeting", initial: m })}
                             className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-150"
