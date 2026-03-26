@@ -15,7 +15,8 @@ import {
   Eye,
   Briefcase,
   Users,
-  UserPlus
+  UserPlus,
+  Building2
 } from "lucide-react";
 import Link from "next/link";
 
@@ -54,7 +55,9 @@ const emptyForm = {
   designation: "", employeeStrength: "",
   status: "Lead Captured" as LeadStatus,
   source: "website" as LeadSource,
-  latestRemark: ""
+  latestRemark: "",
+  closingDate: 0,
+  dealValue: 0
 };
 
 function LeadModal({ initial, onSave, onClose, isSaving }: { 
@@ -150,6 +153,14 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                     {LEAD_SOURCES.map(s => <option key={s} value={s}>{s.replace(/_/g, ' ').toUpperCase()}</option>)}
                   </select>
                 </div>
+                <div>
+                  <label className={labelCls}>Estimated Closing Date</label>
+                  <input className={inputCls} type="date" value={form.closingDate ? new Date(form.closingDate).toISOString().split('T')[0] : ""} onChange={(e) => setForm(f => ({ ...f, closingDate: new Date(e.target.value).getTime() }))} />
+                </div>
+                <div>
+                   <label className={labelCls}>Estimated Deal Value (INR)</label>
+                   <input className={inputCls} type="number" value={form.dealValue || ""} onChange={(e) => setForm(f => ({ ...f, dealValue: Number(e.target.value) }))} placeholder="50000" />
+                </div>
                 <div className="col-span-2">
                    <label className={labelCls}>{initial.firstName ? "Current Remarks / Updates" : "Initial Remarks"}</label>
                    <textarea 
@@ -167,7 +178,7 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
               Cancel
             </button>
             <button type="submit" disabled={isSaving} className="flex-1 px-8 py-4 rounded-2xl bg-indigo-600 text-white font-extrabold text-xs uppercase tracking-widest hover:bg-slate-800 transition active:scale-95 shadow-xl shadow-indigo-500/10 disabled:opacity-50">
-              {isSaving ? "Transmitting..." : initial.firstName ? "Update Record" : "Archive Lead"}
+              {isSaving ? "Transmitting..." : initial.firstName ? "Update Record" : "Create Record"}
             </button>
           </div>
         </form>
@@ -186,7 +197,13 @@ export default function LeadsPage() {
 
   const leads = data?.data ?? [];
 
-  const handleSave = (form: typeof emptyForm) => {
+  const handleDelete = (id: string) => {
+    if (window.confirm("Are you sure you want to permanently delete this lead?")) {
+      deleteLead.mutate(id);
+    }
+  };
+
+  const handleSave = (form: any) => {
     if (modal.lead) {
       updateLead.mutate(
         { id: modal.lead._id, data: form },
@@ -216,7 +233,9 @@ export default function LeadsPage() {
             industry: modal.lead.industry ?? "", status: modal.lead.status,
             source: modal.lead.source, designation: modal.lead.designation ?? "",
             employeeStrength: modal.lead.employeeStrength ?? "",
-            latestRemark: "" // Always start empty for updates to prevent accidental duplicate logging
+            latestRemark: "", 
+            closingDate: modal.lead.closingDate || 0,
+            dealValue: modal.lead.dealValue || 0
           } : emptyForm}
           onSave={handleSave}
           onClose={() => setModal({ open: false })}

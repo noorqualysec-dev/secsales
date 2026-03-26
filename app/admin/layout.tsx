@@ -88,9 +88,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* Admin Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-40 transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
       >
         <AdminSidebar onClose={() => setIsSidebarOpen(false)} />
       </aside>
@@ -105,7 +104,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             router.push("/admin");
           }}
         />
-        
+
         <main className="flex-1 overflow-y-auto p-6 md:p-8 custom-scrollbar relative">
           <div className="max-w-7xl mx-auto animate-fade-in-up">
             {children}

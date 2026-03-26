@@ -2,13 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { 
-  Zap, 
-  LayoutDashboard, 
-  Users, 
-  Database, 
-  FileCheck, 
-  LogOut, 
+import {
+  Zap,
+  LayoutDashboard,
+  Users,
+  Database,
+  FileCheck,
+  LogOut,
   ChevronRight,
   ShieldCheck,
   UserCircle
@@ -55,17 +55,15 @@ export function AdminSidebar({ onClose }: AdminSidebarProps) {
               key={item.href}
               href={item.href}
               onClick={onClose}
-              className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 group ${
-                isActive
+              className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 group ${isActive
                   ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
                   : "text-slate-400 hover:bg-slate-800/80 hover:text-white"
-              }`}
+                }`}
             >
               <div className="flex items-center gap-3.5">
                 <Icon
-                  className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${
-                    isActive ? "text-white" : "text-slate-500"
-                  }`}
+                  className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${isActive ? "text-white" : "text-slate-500"
+                    }`}
                 />
                 <span className="font-semibold text-sm tracking-tight">{item.name}</span>
               </div>

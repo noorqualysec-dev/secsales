@@ -57,6 +57,8 @@ export interface Lead {
   assignedTo?: User | string;
   createdBy: User | string;
   timeline: TimelineEvent[];
+  closingDate?: number;
+  dealValue?: number;
   createdAt: string;
   updatedAt: string;
 }

@@ -1,6 +1,5 @@
 "use client";
 
-import { useLeads, useUpdateLead } from "@/app/hooks/useLeads";
 import {
   DndContext,
   DragOverlay,
@@ -24,6 +23,10 @@ import {
 } from "@dnd-kit/sortable";
 import { useDroppable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
+import { useLeads, useUpdateLead } from "@/app/hooks/useLeads";
+import { useScheduleMeeting } from "@/app/hooks/useProductivity";
+import type { Lead, LeadStatus } from "@/app/types";
+import { useState, useMemo, memo, useEffect, useCallback } from "react";
 import {
   LayoutDashboard,
   Search,
@@ -32,11 +35,11 @@ import {
   Calendar,
   Eye,
   Briefcase,
-  GripVertical
+  GripVertical,
+  X
 } from "lucide-react";
 import Link from "next/link";
-import { useState, useMemo, useCallback, useEffect, memo } from "react";
-import type { Lead, LeadStatus } from "@/app/types";
+
 
 const STAGES: LeadStatus[] = [
   "Lead Captured",
@@ -207,13 +210,56 @@ const KanbanColumn = memo(({
 });
 
 
+function MeetingModal({ lead, onSave, onClose, isSaving }: { 
+  lead: Lead; 
+  onSave: (d: any) => void; 
+  onClose: () => void; 
+  isSaving: boolean 
+}) {
+  const [form, setForm] = useState({ title: `Discovery Call w/ ${lead.firstName} ${lead.lastName}`, from: "", to: "" });
+  const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all";
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md animate-scale-in">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Schedule Interaction</h3>
+          <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl transition"><X size={18} /></button>
+        </div>
+        <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="p-8 space-y-5">
+           <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Interaction Title *</label>
+              <input className={inputCls} value={form.title} onChange={e => setForm({...form, title: e.target.value})} required />
+           </div>
+           <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Starts At</label>
+                <input className={inputCls} type="datetime-local" value={form.from} onChange={e => setForm({...form, from: e.target.value})} required />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Ends At</label>
+                <input className={inputCls} type="datetime-local" value={form.to} onChange={e => setForm({...form, to: e.target.value})} required />
+              </div>
+           </div>
+           <button type="submit" disabled={isSaving} className="w-full py-4 bg-emerald-600 hover:bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-emerald-500/10 disabled:opacity-50">
+              {isSaving ? "Locking Schedule..." : "Confirm Schedule"}
+           </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
 // --- Main Page Component ---
 
 export default function KanbanPage() {
   const { data: leadsData, isLoading } = useLeads();
   const updateLead = useUpdateLead();
+  const scheduleMeeting = useScheduleMeeting();
+
   const [search, setSearch] = useState("");
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
+  const [schedulingLead, setSchedulingLead] = useState<Lead | null>(null);
 
   // Local state for immediate UI feedback during drag
   const [localLeads, setLocalLeads] = useState<Lead[]>([]);
@@ -327,6 +373,11 @@ export default function KanbanPage() {
         id: activeId as string, 
         data: { status: finalStatus } 
       });
+
+      // Special handling for Discovery Call Scheduled
+      if (finalStatus === "Discovery Call Scheduled") {
+         setSchedulingLead(activeLead);
+      }
     }
 
     // Handle internal sort update
