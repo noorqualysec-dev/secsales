@@ -1,32 +1,35 @@
 "use client";
 
-import { 
-  useSalesSummary, 
-  useCreateTask, 
-  useScheduleMeeting, 
-  useUpdateTask, 
-  useUpdateMeeting 
+import {
+  useSalesSummary,
+  useCreateTask,
+  useScheduleMeeting,
+  useUpdateTask,
+  useDeleteTask,
+  useUpdateMeeting,
+  useDeleteMeeting
 } from "@/app/hooks/useProductivity";
 import { useLeads } from "@/app/hooks/useLeads";
-import { 
-  Briefcase, 
-  Users, 
-  PhoneCall, 
-  LayoutDashboard, 
+import {
+  Briefcase,
+  Users,
+  PhoneCall,
+  LayoutDashboard,
   Calendar,
   CheckCircle2,
   Clock,
   ArrowRight,
   ChevronDown,
-  Filter,
-  Eye,
   Plus,
   TrendingUp,
   X,
   Pencil,
   CheckCircle,
   AlertCircle,
-  Search
+  Search,
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useMemo } from "react";
@@ -143,6 +146,10 @@ export default function DashboardPage() {
   const [customRange, setCustomRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
   const [modal, setModal] = useState<{ type: "task" | "meeting" | null; initial?: any } | null>(null);
   const [searchQuery, setSearchQuery] = useState({ tasks: "", meetings: "" });
+  const [meetingsPage, setMeetingsPage] = useState(1);
+  const MEETINGS_PER_PAGE = 5;
+  const [tasksPage, setTasksPage] = useState(1);
+  const TASKS_PER_PAGE = 5;
   
   const filters = useMemo(() => {
     if (dateFilter === "Today") return { startDate: new Date().setHours(0,0,0,0) };
@@ -164,7 +171,9 @@ export default function DashboardPage() {
   const createTask = useCreateTask();
   const scheduleMeeting = useScheduleMeeting();
   const updateTask = useUpdateTask();
+  const deleteTask = useDeleteTask();
   const updateMeeting = useUpdateMeeting();
+  const deleteMeeting = useDeleteMeeting();
 
   const summary = summaryData?.data;
   const leads = leadsData?.data ?? [];
@@ -187,9 +196,21 @@ export default function DashboardPage() {
     t.leadName?.toLowerCase().includes(searchQuery.tasks.toLowerCase())
   );
 
-  const filteredMeetings = summary?.meetings?.filter((m: any) => 
-    m.title.toLowerCase().includes(searchQuery.meetings.toLowerCase()) || 
+  const filteredMeetings = summary?.meetings?.filter((m: any) =>
+    m.title.toLowerCase().includes(searchQuery.meetings.toLowerCase()) ||
     m.leadName?.toLowerCase().includes(searchQuery.meetings.toLowerCase())
+  );
+
+  const totalTaskPages = Math.ceil((filteredTasks?.length || 0) / TASKS_PER_PAGE);
+  const paginatedTasks = filteredTasks?.slice(
+    (tasksPage - 1) * TASKS_PER_PAGE,
+    tasksPage * TASKS_PER_PAGE
+  );
+
+  const totalMeetingPages = Math.ceil((filteredMeetings?.length || 0) / MEETINGS_PER_PAGE);
+  const paginatedMeetings = filteredMeetings?.slice(
+    (meetingsPage - 1) * MEETINGS_PER_PAGE,
+    meetingsPage * MEETINGS_PER_PAGE
   );
 
   if (summaryLoading) return (
@@ -279,139 +300,409 @@ export default function DashboardPage() {
 
       {/* Main Activity Split */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Open Tasks Table */}
+        {/* Open Tasks — Redesigned */}
         <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden flex flex-col min-h-[400px]">
-          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-             <div className="flex items-center gap-3">
-                <CheckCircle2 className="text-indigo-600" size={18} />
+
+          {/* Header */}
+          <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-emerald-50 rounded-2xl flex items-center justify-center">
+                <CheckCircle2 className="text-emerald-600" size={16} />
+              </div>
+              <div>
                 <h2 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">My Open Tasks</h2>
-                <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold">{filteredTasks?.length || 0}</span>
-             </div>
-             <div className="flex items-center gap-2">
-                <div className="relative group/search">
-                   <input 
-                     className="w-0 group-hover/search:w-32 focus:w-32 bg-slate-50 border-none rounded-lg px-2 py-1 text-[9px] font-black transition-all outline-none" 
-                     placeholder="Search tasks..."
-                     value={searchQuery.tasks}
-                     onChange={e => setSearchQuery({...searchQuery, tasks: e.target.value})}
-                   />
-                   <Search size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none p-0.5" />
-                </div>
-                <button onClick={() => setModal({ type: "task" })} className="text-slate-400 hover:text-indigo-600 transition p-2 bg-slate-50 rounded-xl hover:rotate-90 duration-300"><Plus size={18} /></button>
-             </div>
+                <p className="text-[9px] text-slate-400 font-bold mt-0.5">{filteredTasks?.length || 0} pending</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative group/search">
+                <input
+                  className="w-0 group-hover/search:w-36 focus:w-36 bg-slate-50 border border-transparent focus:border-slate-200 rounded-xl px-3 py-1.5 text-[9px] font-bold transition-all outline-none placeholder:text-slate-300"
+                  placeholder="Search tasks..."
+                  value={searchQuery.tasks}
+                  onChange={e => { setSearchQuery({...searchQuery, tasks: e.target.value}); setTasksPage(1); }}
+                />
+                <Search size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+              <button
+                onClick={() => setModal({ type: "task" })}
+                className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black tracking-widest transition-all duration-200 shadow-lg shadow-emerald-500/20 active:scale-95"
+              >
+                <Plus size={12} />
+                Add Task
+              </button>
+            </div>
           </div>
-          <div className="flex-1 overflow-x-auto text-[11px]">
-             {filteredTasks?.length === 0 ? (
-               <div className="h-64 flex flex-col items-center justify-center text-slate-300 italic">No tasks found</div>
-             ) : (
-               <table className="w-full">
-                 <thead>
-                    <tr className="text-slate-400 font-black uppercase text-[9px] tracking-widest bg-slate-50/50">
-                       <th className="px-8 py-4 text-left">Subject</th>
-                       <th className="px-8 py-4 text-left">Related Lead</th>
-                       <th className="px-8 py-4 text-left">Due Date</th>
-                       <th className="px-8 py-4 text-left">Status</th>
-                       <th className="px-8 py-4 text-right">Actions</th>
-                    </tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-50">
-                    {filteredTasks?.map((task: any, idx: number) => (
-                      <tr key={task.id || idx} className="hover:bg-indigo-50/30 transition group">
-                         <td className="px-8 py-4 font-bold text-slate-700">{task.subject}</td>
-                         <td className="px-8 py-4">
-                            <div className="flex flex-col">
-                               <span className="font-bold text-slate-900">{task.leadName || "—"}</span>
-                               <span className="text-[8px] font-black uppercase text-slate-400">{task.company}</span>
+
+          {/* Task List */}
+          <div className="flex-1 overflow-auto flex flex-col">
+            {filteredTasks?.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-slate-300">
+                <CheckCircle2 size={30} className="opacity-30" />
+                <p className="text-[11px] font-bold italic">No open tasks</p>
+              </div>
+            ) : (
+              <>
+                <div className="p-4 space-y-2 flex-1">
+                  {paginatedTasks?.map((task: any, idx: number) => {
+                    const dueDate = new Date(task.dueDate);
+                    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+                    const dueDateStart = new Date(dueDate); dueDateStart.setHours(0, 0, 0, 0);
+                    const isOverdue = dueDateStart < todayStart && task.status !== "Completed";
+                    const isDueToday = dueDateStart.getTime() === todayStart.getTime();
+                    const priorityConfig: Record<string, { bg: string; light: string; text: string; border: string }> = {
+                      High:   { bg: "bg-rose-500",  light: "bg-rose-50",   text: "text-rose-600",  border: "border-rose-100"  },
+                      Medium: { bg: "bg-amber-400", light: "bg-amber-50",  text: "text-amber-600", border: "border-amber-100" },
+                      Low:    { bg: "bg-slate-300", light: "bg-slate-50",  text: "text-slate-500", border: "border-slate-100" },
+                    };
+                    const pc = priorityConfig[task.priority || "Medium"] ?? priorityConfig.Medium;
+
+                    return (
+                      <div
+                        key={task.id || idx}
+                        className={`group flex items-center gap-3.5 px-4 py-3 rounded-2xl border transition-all duration-200
+                          ${task.status === "Completed"
+                            ? "bg-slate-50/60 border-slate-100 opacity-60"
+                            : isOverdue
+                            ? "bg-rose-50/40 border-rose-100 hover:border-rose-200 hover:shadow-sm"
+                            : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 hover:shadow-sm"
+                          }`}
+                      >
+                        {/* Priority Strip */}
+                        <div className={`shrink-0 w-1.5 h-10 rounded-full ${pc.bg}`} />
+
+                        {/* Subject + Due Date */}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-black truncate leading-snug ${task.status === "Completed" ? "line-through text-slate-400" : "text-slate-800"}`}>
+                            {task.subject}
+                          </p>
+                          <p className={`text-[9px] font-bold mt-0.5 ${isOverdue ? "text-rose-500" : isDueToday ? "text-amber-500" : "text-slate-400"}`}>
+                            {isOverdue ? "⚠ Overdue · " : isDueToday ? "⏰ Due Today · " : ""}
+                            {dueDate.toLocaleDateString([], { month: "short", day: "numeric" })}
+                          </p>
+                        </div>
+
+                        {/* Contact Name + Related To */}
+                        <div className="shrink-0 w-28 min-w-0">
+                          {task.leadName ? (
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-5 h-5 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                <span className="text-[8px] font-black text-slate-500">{task.leadName[0].toUpperCase()}</span>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-[10px] font-bold text-slate-700 truncate">{task.leadName}</p>
+                                <p className="text-[8px] font-black text-slate-400 uppercase truncate">{task.company || "—"}</p>
+                              </div>
                             </div>
-                         </td>
-                         <td className="px-8 py-4 text-slate-400">{new Date(task.dueDate).toLocaleDateString()}</td>
-                         <td className="px-8 py-4">
-                            <button 
-                              onClick={() => handleTaskStatusCycle(task)}
-                              className={`px-3 py-1 flex items-center gap-2 rounded-full font-black text-[8px] uppercase tracking-wider shadow-sm transition active:scale-95 ${
-                                task.status === 'Completed' ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' :
-                                task.status === 'Waiting on someone' ? 'bg-amber-50 text-amber-600 border border-amber-100' :
-                                'bg-slate-50 text-slate-600 border border-slate-100'
-                              }`}
+                          ) : (
+                            <span className="text-[9px] text-slate-300 font-bold italic">No lead</span>
+                          )}
+                        </div>
+
+                        {/* Priority Badge */}
+                        <div className="shrink-0">
+                          <span className={`px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-wide ${pc.light} ${pc.text} border ${pc.border}`}>
+                            {task.priority || "Medium"}
+                          </span>
+                        </div>
+
+                        {/* Status (clickable cycle) */}
+                        <div className="shrink-0">
+                          <button
+                            onClick={() => handleTaskStatusCycle(task)}
+                            title="Click to change status"
+                            className={`px-2.5 py-1 flex items-center gap-1.5 rounded-full font-black text-[8px] uppercase tracking-wider shadow-sm transition active:scale-95 ${
+                              task.status === "Completed"          ? "bg-emerald-50 text-emerald-600 border border-emerald-100" :
+                              task.status === "Waiting on someone" ? "bg-amber-50 text-amber-600 border border-amber-100"   :
+                              task.status === "Deferred"           ? "bg-slate-100 text-slate-500 border border-slate-200"   :
+                                                                     "bg-slate-50 text-slate-600 border border-slate-100"
+                            }`}
+                          >
+                            <div className={`w-1.5 h-1.5 rounded-full ${
+                              task.status === "Completed"          ? "bg-emerald-500" :
+                              task.status === "Waiting on someone" ? "bg-amber-500"   :
+                                                                     "bg-slate-400"
+                            }`} />
+                            {task.status === "Waiting on someone" ? "Waiting" : task.status}
+                          </button>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="shrink-0 flex items-center gap-0.5">
+                          <button
+                            onClick={() => setModal({ type: "task", initial: task })}
+                            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-150"
+                            title="Edit"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => { if (confirm("Delete this task?")) deleteTask.mutate(task.id); }}
+                            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all duration-150"
+                            title="Delete"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Pagination */}
+                {totalTaskPages > 1 && (
+                  <div className="px-6 py-3 border-t border-slate-50 flex items-center justify-between bg-slate-50/40">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      {(tasksPage - 1) * TASKS_PER_PAGE + 1}–{Math.min(tasksPage * TASKS_PER_PAGE, filteredTasks?.length || 0)}{" "}
+                      <span className="text-slate-300">of</span>{" "}{filteredTasks?.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        disabled={tasksPage === 1}
+                        onClick={() => setTasksPage(p => p - 1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition"
+                      >
+                        <ChevronLeft size={13} />
+                      </button>
+                      <div className="flex items-center gap-1 px-1">
+                        {Array.from({ length: Math.min(totalTaskPages, 5) }, (_, i) => {
+                          const page = totalTaskPages <= 5
+                            ? i + 1
+                            : tasksPage <= 3
+                            ? i + 1
+                            : tasksPage >= totalTaskPages - 2
+                            ? totalTaskPages - 4 + i
+                            : tasksPage - 2 + i;
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setTasksPage(page)}
+                              className={`w-6 h-6 rounded-lg text-[9px] font-black transition-all duration-150
+                                ${tasksPage === page
+                                  ? "bg-emerald-600 text-white shadow-sm"
+                                  : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                }`}
                             >
-                               <div className={`w-1.5 h-1.5 rounded-full ${
-                                 task.status === 'Completed' ? 'bg-emerald-500' :
-                                 task.status === 'Waiting on someone' ? 'bg-amber-500' :
-                                 'bg-slate-400'
-                               }`} />
-                               {task.status}
+                              {page}
                             </button>
-                         </td>
-                         <td className="px-8 py-4 text-right">
-                            <button onClick={() => setModal({ type: "task", initial: task })} className="p-2 text-slate-300 hover:text-indigo-600 opacity-0 group-hover:opacity-100 transition"><Pencil size={14} /></button>
-                         </td>
-                      </tr>
-                    ))}
-                 </tbody>
-               </table>
-             )}
+                          );
+                        })}
+                      </div>
+                      <button
+                        disabled={tasksPage === totalTaskPages}
+                        onClick={() => setTasksPage(p => p + 1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:opacity-30 transition"
+                      >
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
 
-        {/* Meetings Table */}
+        {/* Meetings — Redesigned */}
         <div className="bg-white border border-slate-200 rounded-[2.5rem] shadow-sm overflow-hidden flex flex-col min-h-[400px]">
-          <div className="px-8 py-6 border-b border-slate-100 flex items-center justify-between">
-             <div className="flex items-center gap-3">
-                <Calendar className="text-indigo-600" size={18} />
+
+          {/* Header */}
+          <div className="px-7 py-5 border-b border-slate-100 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 bg-indigo-50 rounded-2xl flex items-center justify-center">
+                <Calendar className="text-indigo-600" size={16} />
+              </div>
+              <div>
                 <h2 className="text-[11px] font-black text-slate-900 uppercase tracking-widest">My Meetings</h2>
-                <span className="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-full font-bold">{filteredMeetings?.length || 0}</span>
-             </div>
-             <div className="flex items-center gap-2">
-                <div className="relative group/search">
-                   <input 
-                     className="w-0 group-hover/search:w-32 focus:w-32 bg-slate-50 border-none rounded-lg px-2 py-1 text-[9px] font-black transition-all outline-none" 
-                     placeholder="Search meetings..."
-                     value={searchQuery.meetings}
-                     onChange={e => setSearchQuery({...searchQuery, meetings: e.target.value})}
-                   />
-                   <Search size={16} className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none p-0.5" />
-                </div>
-                <button className="p-2 text-slate-400 hover:text-indigo-600 bg-slate-50 rounded-xl transition"><Filter size={18} /></button>
-                <button onClick={() => setModal({ type: "meeting" })} className="text-slate-400 hover:text-indigo-600 transition p-2 bg-slate-50 rounded-xl hover:scale-110 duration-300"><Plus size={18} /></button>
-             </div>
+                <p className="text-[9px] text-slate-400 font-bold mt-0.5">{filteredMeetings?.length || 0} scheduled</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="relative group/search">
+                <input
+                  className="w-0 group-hover/search:w-36 focus:w-36 bg-slate-50 border border-transparent focus:border-slate-200 rounded-xl px-3 py-1.5 text-[9px] font-bold transition-all outline-none placeholder:text-slate-300"
+                  placeholder="Search meetings..."
+                  value={searchQuery.meetings}
+                  onChange={e => { setSearchQuery({...searchQuery, meetings: e.target.value}); setMeetingsPage(1); }}
+                />
+                <Search size={13} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              </div>
+              <button
+                onClick={() => setModal({ type: "meeting" })}
+                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-[10px] font-black tracking-widest transition-all duration-200 shadow-lg shadow-indigo-500/20 active:scale-95"
+              >
+                <Plus size={12} />
+                Schedule
+              </button>
+            </div>
           </div>
-          <div className="flex-1 overflow-x-auto text-[11px]">
-             {filteredMeetings?.length === 0 ? (
-               <div className="h-64 flex flex-col items-center justify-center text-slate-300 italic">No meetings found</div>
-             ) : (
-               <table className="w-full">
-                 <thead>
-                    <tr className="text-slate-400 font-black uppercase text-[9px] tracking-widest bg-slate-50/50">
-                       <th className="px-8 py-4 text-left">Title</th>
-                       <th className="px-8 py-4 text-left">Prospect Details</th>
-                       <th className="px-8 py-4 text-left">Time</th>
-                       <th className="px-8 py-4 text-right">Edit</th>
-                    </tr>
-                 </thead>
-                 <tbody className="divide-y divide-slate-50">
-                    {filteredMeetings?.map((m: any, idx: number) => (
-                      <tr key={m.id || idx} className="hover:bg-indigo-50/30 transition group">
-                         <td className="px-8 py-4 font-bold text-slate-700">{m.title}</td>
-                         <td className="px-8 py-4">
-                            <div className="flex flex-col">
-                               <span className="font-bold text-slate-900">{m.leadName || "—"}</span>
-                               <span className="text-[8px] font-black uppercase text-slate-400">{m.company}</span>
+
+          {/* Meeting List */}
+          <div className="flex-1 overflow-auto flex flex-col">
+            {filteredMeetings?.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-3 py-16 text-slate-300">
+                <Calendar size={30} className="opacity-30" />
+                <p className="text-[11px] font-bold italic">No meetings scheduled</p>
+              </div>
+            ) : (
+              <>
+                <div className="p-4 space-y-2 flex-1">
+                  {paginatedMeetings?.map((m: any, idx: number) => {
+                    const fromDate = new Date(m.from);
+                    const toDate   = new Date(m.to);
+                    const now      = new Date();
+                    const isToday    = fromDate.toDateString() === now.toDateString();
+                    const isTomorrow = fromDate.toDateString() === new Date(now.getTime() + 86400000).toDateString();
+                    const isPast     = fromDate < now && !isToday;
+                    const durationMin = Math.round((toDate.getTime() - fromDate.getTime()) / 60000);
+
+                    return (
+                      <div
+                        key={m.id || idx}
+                        className={`group flex items-center gap-3.5 px-4 py-3 rounded-2xl border transition-all duration-200
+                          ${isToday
+                            ? "bg-indigo-50/70 border-indigo-100 hover:border-indigo-200 hover:shadow-sm"
+                            : isPast
+                            ? "bg-slate-50/60 border-slate-100 opacity-55 hover:opacity-80"
+                            : "bg-white border-slate-100 hover:border-slate-200 hover:bg-slate-50/50 hover:shadow-sm"
+                          }`}
+                      >
+                        {/* Date Badge */}
+                        <div className={`flex-shrink-0 w-10 flex flex-col items-center justify-center rounded-xl py-2 text-center
+                          ${isToday  ? "bg-indigo-600 text-white shadow-md shadow-indigo-500/25"
+                          : isPast   ? "bg-slate-200 text-slate-500"
+                          :            "bg-slate-900 text-white"}`}
+                        >
+                          <span className="text-[7px] font-black uppercase tracking-widest leading-none opacity-70">
+                            {fromDate.toLocaleDateString([], { month: "short" })}
+                          </span>
+                          <span className="text-[17px] font-black leading-snug">
+                            {fromDate.getDate()}
+                          </span>
+                        </div>
+
+                        {/* Divider */}
+                        <div className={`w-px h-8 flex-shrink-0 ${isToday ? "bg-indigo-200" : "bg-slate-100"}`} />
+
+                        {/* Details */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <p className="text-xs font-black text-slate-800 truncate leading-snug">{m.title}</p>
+                            {isToday && (
+                              <span className="flex-shrink-0 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[7px] font-black rounded-full uppercase tracking-wide">
+                                Today
+                              </span>
+                            )}
+                            {isTomorrow && !isToday && (
+                              <span className="flex-shrink-0 px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[7px] font-black rounded-full uppercase tracking-wide">
+                                Tomorrow
+                              </span>
+                            )}
+                            {isPast && (
+                              <span className="flex-shrink-0 px-1.5 py-0.5 bg-slate-100 text-slate-400 text-[7px] font-black rounded-full uppercase tracking-wide">
+                                Past
+                              </span>
+                            )}
+                          </div>
+                          {(m.leadName || m.company) && (
+                            <div className="flex items-center gap-1.5">
+                              <div className="w-4 h-4 rounded-full bg-slate-100 flex items-center justify-center flex-shrink-0">
+                                <span className="text-[7px] font-black text-slate-500">
+                                  {(m.leadName || "?")[0].toUpperCase()}
+                                </span>
+                              </div>
+                              <p className="text-[10px] text-slate-500 font-medium truncate">
+                                {m.leadName && <span className="text-slate-600 font-semibold">{m.leadName}</span>}
+                                {m.leadName && m.company && <span className="text-slate-300 mx-1">·</span>}
+                                {m.company && <span className="text-slate-400">{m.company}</span>}
+                              </p>
                             </div>
-                         </td>
-                         <td className="px-8 py-4 text-slate-400 font-medium">
-                            <div className="flex flex-col">
-                               <span>{new Date(m.from).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                               <span className="text-[9px] opacity-70">to {new Date(m.to).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                            </div>
-                         </td>
-                         <td className="px-8 py-4 text-right">
-                            <button onClick={() => setModal({ type: "meeting", initial: m })} className="p-2 text-slate-300 hover:text-indigo-600 transition opacity-0 group-hover:opacity-100"><Pencil size={14} /></button>
-                         </td>
-                      </tr>
-                    ))}
-                 </tbody>
-               </table>
-             )}
+                          )}
+                        </div>
+
+                        {/* Time + Duration */}
+                        <div className="flex-shrink-0 text-right mr-1">
+                          <p className={`text-xs font-black ${isToday ? "text-indigo-700" : "text-slate-700"}`}>
+                            {fromDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                          <p className="text-[9px] text-slate-400 font-medium">
+                            {durationMin > 0 ? `${durationMin} min` : "—"}
+                          </p>
+                        </div>
+
+                        {/* Actions */}
+                        <div className="flex-shrink-0 flex items-center gap-0.5">
+                          <button
+                            onClick={() => setModal({ type: "meeting", initial: m })}
+                            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-indigo-600 hover:bg-indigo-50 transition-all duration-150"
+                            title="Edit"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
+                            onClick={() => { if (confirm("Delete this meeting?")) deleteMeeting.mutate(m.id); }}
+                            className="w-8 h-8 flex items-center justify-center rounded-xl text-slate-300 hover:text-rose-500 hover:bg-rose-50 transition-all duration-150"
+                            title="Delete"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Pagination */}
+                {totalMeetingPages > 1 && (
+                  <div className="px-6 py-3 border-t border-slate-50 flex items-center justify-between bg-slate-50/40">
+                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                      {(meetingsPage - 1) * MEETINGS_PER_PAGE + 1}–{Math.min(meetingsPage * MEETINGS_PER_PAGE, filteredMeetings?.length || 0)}{" "}
+                      <span className="text-slate-300">of</span>{" "}{filteredMeetings?.length}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        disabled={meetingsPage === 1}
+                        onClick={() => setMeetingsPage(p => p - 1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition"
+                      >
+                        <ChevronLeft size={13} />
+                      </button>
+                      <div className="flex items-center gap-1 px-1">
+                        {Array.from({ length: Math.min(totalMeetingPages, 5) }, (_, i) => {
+                          const page = totalMeetingPages <= 5
+                            ? i + 1
+                            : meetingsPage <= 3
+                            ? i + 1
+                            : meetingsPage >= totalMeetingPages - 2
+                            ? totalMeetingPages - 4 + i
+                            : meetingsPage - 2 + i;
+                          return (
+                            <button
+                              key={page}
+                              onClick={() => setMeetingsPage(page)}
+                              className={`w-6 h-6 rounded-lg text-[9px] font-black transition-all duration-150
+                                ${meetingsPage === page
+                                  ? "bg-indigo-600 text-white shadow-sm"
+                                  : "text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                }`}
+                            >
+                              {page}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      <button
+                        disabled={meetingsPage === totalMeetingPages}
+                        onClick={() => setMeetingsPage(p => p + 1)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:opacity-30 transition"
+                      >
+                        <ChevronRight size={13} />
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       </div>

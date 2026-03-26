@@ -65,8 +65,30 @@ export function useUpdateTask() {
 export function useUpdateMeeting() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: ({ id, data }: { id: string; data: any }) => 
+        mutationFn: ({ id, data }: { id: string; data: any }) =>
             api.patch(`/productivity/meetings/${id}`, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["productivity", "summary"] });
+        }
+    });
+}
+
+export function useDeleteTask() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) =>
+            api.delete(`/productivity/tasks/${id}`),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ["productivity", "summary"] });
+        }
+    });
+}
+
+export function useDeleteMeeting() {
+    const queryClient = useQueryClient();
+    return useMutation({
+        mutationFn: (id: string) =>
+            api.delete(`/productivity/meetings/${id}`),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["productivity", "summary"] });
         }
