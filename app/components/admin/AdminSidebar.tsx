@@ -6,6 +6,7 @@ import {
   Zap,
   LayoutDashboard,
   Users,
+  Users2,
   Database,
   FileCheck,
   LogOut,
@@ -24,6 +25,7 @@ const navItems = [
   { name: "Manage Users", href: "/admin/users", icon: Users },
   { name: "All Leads", href: "/admin/leads", icon: Database },
   { name: "All Proposals", href: "/admin/proposals", icon: FileCheck },
+  { name: "Team", href: "/admin/team", icon: Users2 },
 ];
 
 export function AdminSidebar({ onClose }: AdminSidebarProps) {

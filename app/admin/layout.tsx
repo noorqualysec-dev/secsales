@@ -12,6 +12,7 @@ const adminPageTitles: Record<string, string> = {
   "/admin/users": "User Management",
   "/admin/leads": "System-wide Leads",
   "/admin/proposals": "Financial Monitoring",
+  "/admin/team": "Team Performance",
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

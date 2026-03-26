@@ -84,3 +84,19 @@ export interface ApiResponse<T> {
   count?: number;
   message?: string;
 }
+
+// Per-user aggregated performance stats (computed client-side)
+export interface UserPerformanceStats {
+  userId: string;
+  totalLeads: number;
+  openDeals: number;       // non-Won/Lost
+  wonDeals: number;
+  lostDeals: number;
+  leadsByStatus: Record<LeadStatus, number>;
+  pipelineValue: number;   // sum of dealValue on open leads
+  revenue: number;         // sum of dealValue on Won leads
+  totalProposals: number;
+  acceptedProposals: number;
+  acceptanceRate: number;  // 0-100
+  proposalValue: number;   // sum of value on Accepted proposals
+}
