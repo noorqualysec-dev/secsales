@@ -7,7 +7,7 @@ const nextConfig: NextConfig = {
         // Any request to /api/:path* from the frontend
         // gets transparently proxied to the backend — no CORS!
         source: "/api/:path*",
-        destination: "http://localhost:8002/api/:path*",
+        destination: "https://secsales-backend-6rd9f2le1-noorqualysec-1339s-projects.vercel.app/api/:path*",
       },
     ];
   },

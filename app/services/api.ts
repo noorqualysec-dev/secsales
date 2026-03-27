@@ -3,7 +3,7 @@ import axios, { InternalAxiosRequestConfig } from "axios";
 // Uses a relative path — Next.js rewrites proxy this to localhost:8002/api
 // This means the browser stays on localhost:3000, so CORS never applies!
 export const api = axios.create({
-  baseURL: "/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL + "/api",
   headers: {
     "Content-Type": "application/json",
   },
