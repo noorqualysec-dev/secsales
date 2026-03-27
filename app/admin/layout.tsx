@@ -9,6 +9,7 @@ import { ShieldAlert } from "lucide-react";
 
 const adminPageTitles: Record<string, string> = {
   "/admin/dashboard": "Executive Overview",
+  "/admin/analytics": "Analytics",
   "/admin/users": "User Management",
   "/admin/leads": "System-wide Leads",
   "/admin/proposals": "Financial Monitoring",
