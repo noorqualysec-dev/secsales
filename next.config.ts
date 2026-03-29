@@ -30,43 +30,43 @@
 
 // app/api/proxy/[...path]/route.ts
 
-import { NextRequest } from "next/server";
+// import { NextRequest } from "next/server";
 
-const BASE_URL =
-  "https://secsales-backend-6rd9f2le1-noorqualysec-1339s-projects.vercel.app/api";
+// const BASE_URL =
+//   "https://secsales-backend-6rd9f2le1-noorqualysec-1339s-projects.vercel.app/api";
 
-async function handler(
-  req: NextRequest,
-  { params }: { params: { path: string[] } }
-) {
-  const path = params.path.join("/");
-  const url = `${BASE_URL}/${path}${req.nextUrl.search}`;
+// async function handler(
+//   req: NextRequest,
+//   { params }: { params: { path: string[] } }
+// ) {
+//   const path = params.path.join("/");
+//   const url = `${BASE_URL}/${path}${req.nextUrl.search}`;
 
-  const response = await fetch(url, {
-    method: req.method,
-    headers: req.headers,
-    body:
-      req.method !== "GET" && req.method !== "HEAD"
-        ? await req.text()
-        : undefined,
-  });
+//   const response = await fetch(url, {
+//     method: req.method,
+//     headers: req.headers,
+//     body:
+//       req.method !== "GET" && req.method !== "HEAD"
+//         ? await req.text()
+//         : undefined,
+//   });
 
-  const data = await response.text();
+//   const data = await response.text();
 
-  return new Response(data, {
-    status: response.status,
-    headers: {
-      "Content-Type":
-        response.headers.get("content-type") || "application/json",
-    },
-  });
-}
+//   return new Response(data, {
+//     status: response.status,
+//     headers: {
+//       "Content-Type":
+//         response.headers.get("content-type") || "application/json",
+//     },
+//   });
+// }
 
-export {
-  handler as GET,
-  handler as POST,
-  handler as PUT,
-  handler as DELETE,
-  handler as PATCH,
-  handler as OPTIONS,
-};
+// export {
+//   handler as GET,
+//   handler as POST,
+//   handler as PUT,
+//   handler as DELETE,
+//   handler as PATCH,
+//   handler as OPTIONS,
+// };
