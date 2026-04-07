@@ -25,6 +25,48 @@ const LEAD_SOURCES: LeadSource[] = [
 
 const EMPLOYEE_STRENGTHS = ["1-10", "11-50", "51-200", "201-500", "501-1000", "1000+"];
 
+/** Match backend LEAD_INDUSTRY_PRESETS */
+const LEAD_INDUSTRY_PRESETS = [
+  "Technology",
+  "Healthcare",
+  "Financial Services",
+  "Manufacturing",
+  "Retail",
+] as const;
+
+const INDUSTRY_OTHER = "__other__";
+
+const PHONE_COUNTRY_OPTIONS: { name: string; dial: string }[] = [
+  { name: "Australia", dial: "+61" },
+  { name: "Bangladesh", dial: "+880" },
+  { name: "Brazil", dial: "+55" },
+  { name: "Canada", dial: "+1" },
+  { name: "China", dial: "+86" },
+  { name: "Egypt", dial: "+20" },
+  { name: "France", dial: "+33" },
+  { name: "Germany", dial: "+49" },
+  { name: "India", dial: "+91" },
+  { name: "Indonesia", dial: "+62" },
+  { name: "Italy", dial: "+39" },
+  { name: "Japan", dial: "+81" },
+  { name: "Kenya", dial: "+254" },
+  { name: "Malaysia", dial: "+60" },
+  { name: "Mexico", dial: "+52" },
+  { name: "Netherlands", dial: "+31" },
+  { name: "Nigeria", dial: "+234" },
+  { name: "Philippines", dial: "+63" },
+  { name: "Saudi Arabia", dial: "+966" },
+  { name: "Singapore", dial: "+65" },
+  { name: "South Africa", dial: "+27" },
+  { name: "South Korea", dial: "+82" },
+  { name: "Spain", dial: "+34" },
+  { name: "Thailand", dial: "+66" },
+  { name: "United Arab Emirates", dial: "+971" },
+  { name: "United Kingdom", dial: "+44" },
+  { name: "United States", dial: "+1" },
+  { name: "Vietnam", dial: "+84" },
+].sort((a, b) => a.name.localeCompare(b.name));
+
 const statusColors: Record<string, string> = {
   "Lead Captured": "bg-blue-50 text-blue-600 border-blue-100",
   "Discovery Call Scheduled": "bg-purple-50 text-purple-600 border-purple-100",
@@ -52,7 +94,8 @@ function exportLeadsToCSV(leads: Lead[]) {
     "Status", "Source", "Deal Value", "Closing Date", "Remarks",
   ];
   const rows = leads.map((l: Lead) => [
-    l.firstName, l.lastName, l.email, l.phone ?? "",
+    l.firstName, l.lastName, l.email,
+    l.phoneCountryCode && l.phone ? `${l.phoneCountryCode}${l.phone}` : (l.phone ?? ""),
     l.designation ?? "", l.company ?? "", l.industry ?? "",
     l.country ?? "", l.employeeStrength ?? "",
     l.status, l.source,
@@ -87,11 +130,29 @@ const CSV_FIELD_MAP: Record<string, string> = {
   "remarks": "latestRemark", "notes": "latestRemark", "remark": "latestRemark", "latest remark": "latestRemark",
 };
 
+function splitLegacyPhone(full: string): { phoneCountryCode: string; phone: string; country: string } {
+  const t = full.trim();
+  if (!t) return { phoneCountryCode: "", phone: "", country: "" };
+  if (!t.startsWith("+")) {
+    return { phoneCountryCode: "", phone: t.replace(/\D/g, ""), country: "" };
+  }
+  const sorted = [...PHONE_COUNTRY_OPTIONS].sort((a, b) => b.dial.length - a.dial.length);
+  for (const o of sorted) {
+    if (t.startsWith(o.dial)) {
+      const national = t.slice(o.dial.length).replace(/\D/g, "");
+      return { phoneCountryCode: o.dial, phone: national, country: o.name };
+    }
+  }
+  return { phoneCountryCode: "", phone: t, country: "" };
+}
+
 // ── Components ────────────────────────────────────────────────────────────────
 
 const emptyForm = {
-  firstName: "", lastName: "", email: "", phone: "",
-  company: "", country: "", industry: "",
+  firstName: "", lastName: "", email: "",
+  phoneCountryCode: "", phone: "",
+  company: "", country: "",
+  industrySelect: "", industryOther: "",
   designation: "", employeeStrength: "",
   status: "Lead Captured" as LeadStatus,
   source: "website" as LeadSource,
@@ -100,20 +161,98 @@ const emptyForm = {
   dealValue: 0,
 };
 
+type LeadForm = typeof emptyForm;
+
+function leadToFormInitial(lead: Lead): LeadForm {
+  let phoneCountryCode = lead.phoneCountryCode?.trim() ?? "";
+  let phone = (lead.phone ?? "").trim();
+  let country = lead.country ?? "";
+  if (!phoneCountryCode && phone.startsWith("+")) {
+    const parsed = splitLegacyPhone(phone);
+    phoneCountryCode = parsed.phoneCountryCode;
+    phone = parsed.phone;
+    if (!country && parsed.country) country = parsed.country;
+  } else {
+    phone = phone.replace(/\D/g, "");
+  }
+
+  const ind = lead.industry ?? "";
+  const presetList = LEAD_INDUSTRY_PRESETS as readonly string[];
+  const industrySelect = ind && presetList.includes(ind) ? ind : ind ? INDUSTRY_OTHER : "";
+  const industryOther = industrySelect === INDUSTRY_OTHER ? ind : "";
+
+  return {
+    firstName: lead.firstName,
+    lastName: lead.lastName,
+    email: lead.email,
+    phoneCountryCode,
+    phone,
+    company: lead.company ?? "",
+    country,
+    industrySelect,
+    industryOther,
+    status: lead.status,
+    source: lead.source,
+    designation: lead.designation ?? "",
+    employeeStrength: lead.employeeStrength ?? "",
+    latestRemark: "",
+    closingDate: lead.closingDate || 0,
+    dealValue: lead.dealValue || 0,
+  };
+}
+
+function formToApiPayload(form: LeadForm): Partial<Lead> {
+  const { industrySelect, industryOther, ...rest } = form;
+  const industry =
+    industrySelect === INDUSTRY_OTHER
+      ? industryOther.trim()
+      : industrySelect.trim();
+  return { ...rest, industry: industry || undefined };
+}
+
 function LeadModal({ initial, onSave, onClose, isSaving }: {
-  initial: typeof emptyForm;
-  onSave: (d: typeof emptyForm) => void;
+  initial: LeadForm;
+  onSave: (d: LeadForm) => void;
   onClose: () => void;
   isSaving: boolean;
 }) {
   const [form, setForm] = useState(initial);
-  const set = (k: keyof typeof emptyForm) =>
+  const [formError, setFormError] = useState<string | null>(null);
+  const set = (k: keyof LeadForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const sectionLabelCls = "text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] mb-4 mt-6 first:mt-0 flex items-center gap-2";
   const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 focus:bg-white transition-all duration-300";
   const labelCls = "text-[11px] font-bold text-slate-500 mb-1.5 block ml-1";
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError(null);
+    const dial = form.phoneCountryCode.trim();
+    const digits = form.phone.replace(/\D/g, "");
+    const hasDial = dial.length > 0;
+    const hasDigits = digits.length > 0;
+    if (hasDial !== hasDigits) {
+      setFormError("Select a country / code and enter the national number, or leave both empty.");
+      return;
+    }
+    if (hasDigits) {
+      if (!/^\+\d{1,4}$/.test(dial)) {
+        setFormError("Invalid country calling code.");
+        return;
+      }
+      if (digits.length < 4 || digits.length > 15) {
+        setFormError("Phone must be between 4 and 15 digits.");
+        return;
+      }
+    }
+    if (form.industrySelect === INDUSTRY_OTHER && !form.industryOther.trim()) {
+      setFormError("Please specify the industry when you select Other.");
+      return;
+    }
+    onSave({ ...form, phone: digits, phoneCountryCode: dial });
+  };
 
   return (
     <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-fade-in">
@@ -129,7 +268,7 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
             <X size={24} />
           </button>
         </div>
-        <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="overflow-y-auto px-10 py-8 custom-scrollbar space-y-8">
+        <form onSubmit={submit} className="overflow-y-auto px-10 py-8 custom-scrollbar space-y-8">
           <div>
             <h3 className={sectionLabelCls}><Users size={14} /> Identity & Contact</h3>
             <div className="grid grid-cols-2 gap-6">
@@ -149,9 +288,46 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                 <label className={labelCls}>Designation</label>
                 <input className={inputCls} value={form.designation} onChange={set("designation")} placeholder="C-Level, VP, etc." />
               </div>
-              <div>
-                <label className={labelCls}>Phone Line</label>
-                <input className={inputCls} value={form.phone} onChange={set("phone")} placeholder="+91..." />
+              <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelCls}>Country / dialing code</label>
+                  <select
+                    className={inputCls}
+                    value={form.phoneCountryCode && form.country ? `${form.phoneCountryCode}|${form.country}` : ""}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) {
+                        setForm((f) => ({ ...f, phoneCountryCode: "", country: "" }));
+                        return;
+                      }
+                      const pipe = v.indexOf("|");
+                      const dial = v.slice(0, pipe);
+                      const name = v.slice(pipe + 1);
+                      setForm((f) => ({ ...f, phoneCountryCode: dial, country: name }));
+                    }}
+                  >
+                    <option value="">Select country (optional)</option>
+                    {PHONE_COUNTRY_OPTIONS.map((o) => (
+                      <option key={`${o.dial}-${o.name}`} value={`${o.dial}|${o.name}`}>
+                        {o.name} ({o.dial})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelCls}>Phone (digits only)</label>
+                  <input
+                    className={inputCls}
+                    inputMode="numeric"
+                    autoComplete="tel-national"
+                    value={form.phone}
+                    onChange={(e) => {
+                      const digits = e.target.value.replace(/\D/g, "");
+                      setForm((f) => ({ ...f, phone: digits }));
+                    }}
+                    placeholder="9876543210"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -171,8 +347,25 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
               </div>
               <div>
                 <label className={labelCls}>Industry Sector</label>
-                <input className={inputCls} value={form.industry} onChange={set("industry")} placeholder="Fintech, SaaS, etc." />
+                <select className={inputCls} value={form.industrySelect} onChange={set("industrySelect")}>
+                  <option value="">Select sector (optional)</option>
+                  {LEAD_INDUSTRY_PRESETS.map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                  <option value={INDUSTRY_OTHER}>Other</option>
+                </select>
               </div>
+              {form.industrySelect === INDUSTRY_OTHER && (
+                <div className="col-span-2">
+                  <label className={labelCls}>Specify industry</label>
+                  <input
+                    className={inputCls}
+                    value={form.industryOther}
+                    onChange={set("industryOther")}
+                    placeholder="Fintech, Education, etc."
+                  />
+                </div>
+              )}
             </div>
           </div>
           <div>
@@ -209,6 +402,9 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
               </div>
             </div>
           </div>
+          {formError && (
+            <p className="text-sm font-bold text-rose-600 bg-rose-50 border border-rose-100 rounded-2xl px-4 py-3">{formError}</p>
+          )}
           <div className="flex gap-4 pt-6 sticky bottom-0 bg-white pb-2">
             <button type="button" onClick={onClose} className="flex-1 px-8 py-4 rounded-2xl border border-slate-200 text-slate-500 font-extrabold text-xs uppercase tracking-widest hover:bg-slate-50 transition active:scale-95 shadow-sm">
               Cancel
@@ -447,14 +643,15 @@ export default function LeadsPage() {
     }
   };
 
-  const handleSave = (form: any) => {
+  const handleSave = (form: LeadForm) => {
+    const payload = formToApiPayload(form);
     if (modal.lead) {
       updateLead.mutate(
-        { id: modal.lead._id, data: form },
+        { id: modal.lead._id, data: payload },
         { onSuccess: () => setModal({ open: false }) }
       );
     } else {
-      createLead.mutate(form, { onSuccess: () => setModal({ open: false }) });
+      createLead.mutate(payload, { onSuccess: () => setModal({ open: false }) });
     }
   };
 
@@ -478,17 +675,8 @@ export default function LeadsPage() {
     <>
       {modal.open && (
         <LeadModal
-          initial={modal.lead ? {
-            firstName: modal.lead.firstName, lastName: modal.lead.lastName,
-            email: modal.lead.email, phone: modal.lead.phone ?? "",
-            company: modal.lead.company ?? "", country: modal.lead.country ?? "",
-            industry: modal.lead.industry ?? "", status: modal.lead.status,
-            source: modal.lead.source, designation: modal.lead.designation ?? "",
-            employeeStrength: modal.lead.employeeStrength ?? "",
-            latestRemark: "",
-            closingDate: modal.lead.closingDate || 0,
-            dealValue: modal.lead.dealValue || 0,
-          } : emptyForm}
+          key={modal.lead?._id ?? "new-lead"}
+          initial={modal.lead ? leadToFormInitial(modal.lead) : emptyForm}
           onSave={handleSave}
           onClose={() => setModal({ open: false })}
           isSaving={createLead.isPending || updateLead.isPending}
@@ -533,7 +721,7 @@ export default function LeadsPage() {
               onClick={() => setModal({ open: true })}
               className="flex items-center justify-center gap-3 bg-indigo-600 hover:bg-slate-900 text-white px-5 py-2.5 rounded-4xl text-sm font-extrabold uppercase tracking-widest transition-all duration-500 hover:scale-105 active:scale-95 shadow-xl shadow-indigo-500/20"
             >
-              <Plus size={16} /> Add Intelligence
+              <Plus size={16} /> Add Lead
             </button>
           </div>
         </div>

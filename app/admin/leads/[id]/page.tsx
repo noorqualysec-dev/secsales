@@ -24,6 +24,13 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import type { Lead, User, ProposalStatus } from "@/app/types";
 
+function formatLeadDisplayPhone(lead: { phone?: string; phoneCountryCode?: string }) {
+  const c = lead.phoneCountryCode?.trim();
+  const p = (lead.phone ?? "").trim();
+  if (c && p) return `${c} ${p}`;
+  return p || "";
+}
+
 export default function AdminLeadJourneyPage() {
   const params = useParams();
   const id = params.id as string;
@@ -224,10 +231,10 @@ export default function AdminLeadJourneyPage() {
                     <Mail size={16} className="text-indigo-600 group-hover:text-indigo-200" />
                     <p className="text-xs font-bold text-slate-700 truncate group-hover:text-white transition-colors">{lead.email}</p>
                  </div>
-                 {lead.phone && (
+                 {formatLeadDisplayPhone(lead) && (
                    <div className="flex items-center gap-4 bg-white/50 p-4 rounded-2xl group-hover:bg-white/10 transition-colors">
                       <Phone size={16} className="text-indigo-600 group-hover:text-indigo-200" />
-                      <p className="text-xs font-bold text-slate-700 group-hover:text-white transition-colors">{lead.phone}</p>
+                      <p className="text-xs font-bold text-slate-700 group-hover:text-white transition-colors">{formatLeadDisplayPhone(lead)}</p>
                    </div>
                  )}
               </div>

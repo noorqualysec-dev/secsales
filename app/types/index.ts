@@ -48,6 +48,7 @@ export interface Lead {
   designation?: string;
   employeeStrength?: string;
   phone?: string;
+  phoneCountryCode?: string;
   company?: string;
   country?: string;
   industry?: string;
