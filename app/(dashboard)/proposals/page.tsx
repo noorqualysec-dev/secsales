@@ -197,9 +197,14 @@ export default function ProposalsPage() {
     deleteProposal.mutate(id);
   };
 
-  const getLeadName = (lead: Lead | string) => {
+  const getLeadName = (lead: Lead | string | null | undefined) => {
+    if (!lead) return "—";
     if (typeof lead === "string") return "—";
-    return `${lead.firstName} ${lead.lastName}`;
+    // Runtime safety: backend can return `lead: null` for orphaned proposals
+    const firstName = (lead as any).firstName;
+    const lastName = (lead as any).lastName;
+    if (typeof firstName !== "string" || typeof lastName !== "string") return "—";
+    return `${firstName} ${lastName}`;
   };
 
   if (error) {
@@ -215,7 +220,11 @@ export default function ProposalsPage() {
       {modal.open && (
         <ProposalModal
           initial={modal.proposal ? {
-            leadId: typeof modal.proposal.lead === "string" ? modal.proposal.lead : modal.proposal.lead._id,
+            leadId: (() => {
+              const leadAny = (modal.proposal as any).lead;
+              if (!leadAny) return "";
+              return typeof leadAny === "string" ? leadAny : (leadAny._id ?? "");
+            })(),
             value: String(modal.proposal.value),
             testingScope: modal.proposal.testingScope,
             status: modal.proposal.status,
