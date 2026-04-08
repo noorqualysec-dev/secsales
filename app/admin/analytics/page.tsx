@@ -527,7 +527,7 @@ export default function AdminAnalyticsPage() {
                   fontSize: 11,
                   fontWeight: 800,
                   fill: "#94a3b8",
-                  formatter: (v: number, entry: any) => `${v} (${entry?.payload?.pct ?? 0}%)`,
+                  valueAccessor: (entry) => `${entry.value} (${(entry.payload as any)?.pct ?? 0}%)`,
                 }}
               >
                 {lostByStageData.map((entry, i) => (
