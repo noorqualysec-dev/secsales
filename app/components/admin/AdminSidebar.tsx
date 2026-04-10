@@ -9,6 +9,7 @@ import {
   Users2,
   Database,
   FileCheck,
+  ListTodo,
   LogOut,
   ChevronRight,
   ShieldCheck,
@@ -23,6 +24,7 @@ interface AdminSidebarProps {
 const navItems = [
   { name: "Overview",      href: "/admin/dashboard",  icon: LayoutDashboard },
   { name: "Analytics",     href: "/admin/analytics",  icon: BarChart3 },
+  { name: "Tasks",         href: "/admin/tasks",      icon: ListTodo },
   { name: "Lead Kanban",   href: "/admin/kanban",     icon: LayoutDashboard },
   { name: "Manage Users",  href: "/admin/users",      icon: Users },
   { name: "All Leads",     href: "/admin/leads",      icon: Database },

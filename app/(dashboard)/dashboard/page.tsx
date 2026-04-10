@@ -34,6 +34,7 @@ import {
 import Link from "next/link";
 import { useState, useMemo } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
+import type { TaskStatus } from "@/app/types";
 
 const getMeetingTitle = (meeting: any) => meeting.subject || meeting.title || "Untitled Meeting";
 const getMeetingStart = (meeting: any) => meeting.startTime ?? meeting.from ?? 0;
@@ -192,7 +193,7 @@ export default function DashboardPage() {
   const leads = leadsData?.data ?? [];
 
   const handleTaskStatusCycle = (task: any) => {
-    const statuses = ["Pending", "Waiting on someone", "Completed", "Deferred"];
+    const statuses: TaskStatus[] = ["Pending", "Waiting on someone", "Completed", "Deferred"];
     const nextIdx = (statuses.indexOf(task.status) + 1) % statuses.length;
     updateTask.mutate({ id: task.id, data: { status: statuses[nextIdx] } });
   };

@@ -78,6 +78,42 @@ export interface Proposal {
   updatedAt: string;
 }
 
+export type TaskStatus =
+  | "Pending"
+  | "In Progress"
+  | "Completed"
+  | "Waiting on someone"
+  | "Deferred";
+
+export type TaskPriority = "Low" | "Medium" | "High";
+
+export type TaskSource = "self" | "admin" | "system";
+
+export interface Task {
+  id: string;
+  subject: string;
+  description?: string;
+  dueDate: number;
+  status: TaskStatus;
+  priority: TaskPriority;
+  assignedTo: string;
+  assignedBy?: string;
+  createdBy: string;
+  source: TaskSource;
+  isRead?: boolean;
+  leadId?: string | null;
+  leadName?: string;
+  company?: string;
+  assignedToName?: string;
+  assignedByName?: string;
+  createdByName?: string;
+  completedAt?: number | null;
+  completedBy?: string | null;
+  completionRemark?: string | null;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // API response shape from backend
 export interface ApiResponse<T> {
   success: boolean;

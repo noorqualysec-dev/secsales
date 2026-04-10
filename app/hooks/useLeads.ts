@@ -4,13 +4,16 @@ import type { Lead, ApiResponse } from "@/app/types";
 
 const LEADS_KEY = ["leads"];
 
-export function useLeads() {
+export function useLeads(options: { enabled?: boolean } = {}) {
   return useQuery<ApiResponse<Lead[]>>({
     queryKey: LEADS_KEY,
     queryFn: async () => {
       const res = await api.get<ApiResponse<Lead[]>>("/leads");
       return res.data;
     },
+    enabled: options.enabled ?? true,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
   });
 }
 
