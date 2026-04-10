@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { GoogleConnectButton } from "@/app/components/GoogleConnectButton";
 import { GoogleEventsList } from "@/app/components/GoogleEventsList";
+import { GoogleMeetingScheduler } from "@/app/components/GoogleMeetingScheduler";
 import { IntegrationStatusBadge } from "@/app/components/IntegrationStatusBadge";
 
 export default function GoogleIntegrationPage() {
+  const [refreshKey, setRefreshKey] = useState(0);
+
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -19,6 +23,10 @@ export default function GoogleIntegrationPage() {
         <GoogleConnectButton />
       </div>
 
+      <GoogleMeetingScheduler
+        onMeetingCreated={() => setRefreshKey((current) => current + 1)}
+      />
+
       <div className="border rounded-xl p-4 space-y-4">
         <div>
           <h2 className="text-lg font-medium">Calendar Events</h2>
@@ -27,7 +35,7 @@ export default function GoogleIntegrationPage() {
           </p>
         </div>
 
-        <GoogleEventsList />
+        <GoogleEventsList refreshKey={refreshKey} />
       </div>
     </div>
   );

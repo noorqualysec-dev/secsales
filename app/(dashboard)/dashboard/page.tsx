@@ -35,6 +35,10 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
 
+const getMeetingTitle = (meeting: any) => meeting.subject || meeting.title || "Untitled Meeting";
+const getMeetingStart = (meeting: any) => meeting.startTime ?? meeting.from ?? 0;
+const getMeetingEnd = (meeting: any) => meeting.endTime ?? meeting.to ?? 0;
+
 // ── Quick Modals ─────────────────────────────────────────────────────────────
 
 function TaskModal({ leads, initial, onSave, onClose, isSaving }: { 
@@ -96,7 +100,16 @@ function MeetingModal({ leads, initial, onSave, onClose, isSaving }: {
   onClose: () => void; 
   isSaving: boolean 
 }) {
-  const [form, setForm] = useState(initial || { title: "", from: "", to: "", leadId: "" });
+  const [form, setForm] = useState(
+    initial
+      ? {
+          title: initial.subject ?? initial.title ?? "",
+          from: initial.startTime ?? initial.from ?? "",
+          to: initial.endTime ?? initial.to ?? "",
+          leadId: initial.leadId ?? "",
+        }
+      : { title: "", from: "", to: "", leadId: "" }
+  );
   const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all";
 
   return (
@@ -197,7 +210,7 @@ export default function DashboardPage() {
   );
 
   const filteredMeetings = summary?.meetings?.filter((m: any) =>
-    m.title.toLowerCase().includes(searchQuery.meetings.toLowerCase()) ||
+    getMeetingTitle(m).toLowerCase().includes(searchQuery.meetings.toLowerCase()) ||
     m.leadName?.toLowerCase().includes(searchQuery.meetings.toLowerCase())
   );
 
@@ -548,8 +561,8 @@ export default function DashboardPage() {
               <>
                 <div className="p-4 space-y-2 flex-1">
                   {paginatedMeetings?.map((m: any, idx: number) => {
-                    const fromDate = new Date(m.from);
-                    const toDate   = new Date(m.to);
+                    const fromDate = new Date(getMeetingStart(m));
+                    const toDate   = new Date(getMeetingEnd(m));
                     const now      = new Date();
                     const isToday    = fromDate.toDateString() === now.toDateString();
                     const isTomorrow = fromDate.toDateString() === new Date(now.getTime() + 86400000).toDateString();
@@ -587,7 +600,7 @@ export default function DashboardPage() {
                         {/* Details */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
-                            <p className="text-xs font-black text-slate-800 truncate leading-snug">{m.title}</p>
+                            <p className="text-xs font-black text-slate-800 truncate leading-snug">{getMeetingTitle(m)}</p>
                             {isToday && (
                               <span className="shrink-0 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 text-[7px] font-black rounded-full uppercase tracking-wide">
                                 Today

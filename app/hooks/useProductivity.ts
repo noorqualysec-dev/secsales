@@ -13,6 +13,22 @@ export interface SalesSummary {
     dealsClosingThisMonth: any[];
 }
 
+export interface ScheduleMeetingPayload {
+    leadId: string;
+    subject?: string;
+    title?: string;
+    startTime?: number;
+    endTime?: number;
+    from?: number;
+    to?: number;
+    description?: string;
+    agenda?: string;
+    location?: string;
+    meetingMode?: "google_meet" | "zoom" | "phone" | "in_person" | "other";
+    attendees?: { email: string; name?: string; type?: "sales_rep" | "lead" | "external" }[];
+    status?: "Scheduled" | "Completed" | "Cancelled";
+}
+
 export function useSalesSummary(filters: { startDate?: number; endDate?: number } = {}) {
     return useQuery<ApiResponse<SalesSummary>>({
         queryKey: ["productivity", "summary", filters],
@@ -30,7 +46,7 @@ export function useSalesSummary(filters: { startDate?: number; endDate?: number 
 export function useScheduleMeeting() {
     const queryClient = useQueryClient();
     return useMutation({
-        mutationFn: (data: { leadId: string; title: string; from: number; to: number }) => 
+        mutationFn: (data: ScheduleMeetingPayload) => 
             api.post("/productivity/meetings", data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["productivity", "summary"] });

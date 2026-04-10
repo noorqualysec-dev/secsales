@@ -1,6 +1,7 @@
 "use client";
 
 import { useGoogleEvents } from "../hooks/useGoogleEvents";
+import { useGoogleIntegration } from "../hooks/useGoogleIntegration";
 
 function formatEventDate(dateTime?: string, date?: string) {
   const value = dateTime || date;
@@ -12,8 +13,24 @@ function formatEventDate(dateTime?: string, date?: string) {
   return parsed.toLocaleString();
 }
 
-export const GoogleEventsList = () => {
-  const { events, loading, error, refetch } = useGoogleEvents();
+export const GoogleEventsList = ({ refreshKey = 0 }: { refreshKey?: number }) => {
+  const { connected, loading: statusLoading } = useGoogleIntegration();
+  const { events, loading, error, refetch } = useGoogleEvents(
+    connected,
+    refreshKey
+  );
+
+  if (statusLoading) {
+    return <div className="text-sm">Checking Google connection...</div>;
+  }
+
+  if (!connected) {
+    return (
+      <p className="text-sm text-gray-500">
+        Connect your Google account to load calendar events.
+      </p>
+    );
+  }
 
   if (loading) {
     return <div className="text-sm">Loading events...</div>;

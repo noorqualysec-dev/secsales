@@ -19,12 +19,19 @@ export interface GoogleCalendarEvent {
   };
 }
 
-export const useGoogleEvents = () => {
+export const useGoogleEvents = (enabled = true, refreshKey = 0) => {
   const [events, setEvents] = useState<GoogleCalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const fetchEvents = async () => {
+    if (!enabled) {
+      setEvents([]);
+      setError("");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
@@ -40,7 +47,7 @@ export const useGoogleEvents = () => {
 
   useEffect(() => {
     fetchEvents();
-  }, []);
+  }, [enabled, refreshKey]);
 
   return {
     events,
