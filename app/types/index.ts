@@ -122,6 +122,25 @@ export interface ApiResponse<T> {
   message?: string;
 }
 
+export interface Notification {
+  _id: string;
+  type: string;
+  title: string;
+  message: string;
+  leadId?: string;
+  read: boolean;
+  createdAt: number;
+  readAt?: number | null;
+}
+
+export interface NotificationsResponse {
+  success: boolean;
+  count: number;
+  unreadCount: number;
+  data: Notification[];
+  message?: string;
+}
+
 // Per-user aggregated performance stats (computed client-side)
 export interface UserPerformanceStats {
   userId: string;

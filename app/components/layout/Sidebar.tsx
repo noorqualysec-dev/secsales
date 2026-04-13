@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, Users, FileText, ListTodo, X } from "lucide-react";
+import { Label } from "recharts";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -10,6 +11,7 @@ const navItems = [
   { href: "/kanban", label: "Lead Kanban", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: Users },
   { href: "/proposals", label: "Proposals", icon: FileText },
+  { href: "dashboard/integrations/google", label: "Google Calendar", icon: FileText },
 ];
 
 interface SidebarProps {
