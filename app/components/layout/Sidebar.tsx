@@ -11,7 +11,7 @@ const navItems = [
   { href: "/kanban", label: "Lead Kanban", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: Users },
   { href: "/proposals", label: "Proposals", icon: FileText },
-  { href: "dashboard/integrations/google", label: "Google Calendar", icon: FileText },
+  { href: "/dashboard/integrations/google", label: "Google Calendar", icon: FileText },
 ];
 
 interface SidebarProps {
