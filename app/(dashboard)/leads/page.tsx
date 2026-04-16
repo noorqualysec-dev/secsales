@@ -2,11 +2,12 @@
 
 import { useState, useRef } from "react";
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useBulkImportLeads } from "@/app/hooks/useLeads";
-import type { Lead, LeadStatus, LeadSource } from "@/app/types";
+import type { LeadPayload } from "@/app/hooks/useLeads";
+import type { Lead, LeadStatus, LeadSource, LeadContact } from "@/app/types";
 import Papa from "papaparse";
 import {
   Plus, Pencil, Trash2, X, CheckCircle2, Eye,
-  Briefcase, Users, Building2, Upload, Download, AlertCircle
+  Briefcase, Users, Building2, Upload, Download, AlertCircle, UserPlus2, Sparkles
 } from "lucide-react";
 import Link from "next/link";
 
@@ -159,9 +160,58 @@ const emptyForm = {
   latestRemark: "",
   closingDate: 0,
   dealValue: 0,
+  contacts: [] as CompanyContactForm[],
+  companyInsights: {
+    hiringSignal: "",
+    recentTrigger: "",
+    nextOpportunity: "",
+    accountNotes: "",
+  },
 };
 
 type LeadForm = typeof emptyForm;
+type CompanyContactForm = {
+  id?: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  designation: string;
+  department: string;
+  source: string;
+  notes: string;
+  phoneCountryCode: string;
+  phone: string;
+  employmentStage: "" | "current" | "joining_soon" | "newly_joined";
+};
+
+const emptyCompanyContact = (): CompanyContactForm => ({
+  firstName: "",
+  lastName: "",
+  email: "",
+  designation: "",
+  department: "",
+  source: "",
+  notes: "",
+  phoneCountryCode: "",
+  phone: "",
+  employmentStage: "",
+});
+
+function leadContactToForm(contact: LeadContact): CompanyContactForm {
+  return {
+    id: contact.id,
+    firstName: contact.firstName ?? "",
+    lastName: contact.lastName ?? "",
+    email: contact.email ?? "",
+    designation: contact.designation ?? "",
+    department: contact.department ?? "",
+    source: contact.source ?? "",
+    notes: contact.notes ?? "",
+    phoneCountryCode: contact.phoneCountryCode ?? "",
+    phone: (contact.phone ?? "").replace(/\D/g, ""),
+    employmentStage: contact.employmentStage ?? "",
+  };
+}
 
 function leadToFormInitial(lead: Lead): LeadForm {
   let phoneCountryCode = lead.phoneCountryCode?.trim() ?? "";
@@ -198,16 +248,42 @@ function leadToFormInitial(lead: Lead): LeadForm {
     latestRemark: "",
     closingDate: lead.closingDate || 0,
     dealValue: lead.dealValue || 0,
+    contacts: (lead.contacts ?? []).map(leadContactToForm),
+    companyInsights: {
+      hiringSignal: lead.companyInsights?.hiringSignal ?? "",
+      recentTrigger: lead.companyInsights?.recentTrigger ?? "",
+      nextOpportunity: lead.companyInsights?.nextOpportunity ?? "",
+      accountNotes: lead.companyInsights?.accountNotes ?? "",
+    },
   };
 }
 
-function formToApiPayload(form: LeadForm): Partial<Lead> {
-  const { industrySelect, industryOther, ...rest } = form;
+function formToApiPayload(form: LeadForm): LeadPayload {
+  const { industrySelect, industryOther, contacts, companyInsights, ...rest } = form;
   const industry =
     industrySelect === INDUSTRY_OTHER
       ? industryOther.trim()
       : industrySelect.trim();
-  return { ...rest, industry: industry || undefined };
+  return {
+    ...rest,
+    industry: industry || undefined,
+    contacts: contacts
+      .map((contact) => ({
+        ...contact,
+        phone: contact.phone.replace(/\D/g, ""),
+        phoneCountryCode: contact.phoneCountryCode.trim(),
+        employmentStage: contact.employmentStage || undefined,
+      }))
+      .filter((contact) => contact.firstName.trim() && contact.email.trim()),
+    companyInsights: Object.values(companyInsights).some((value) => value.trim())
+      ? {
+          hiringSignal: companyInsights.hiringSignal.trim(),
+          recentTrigger: companyInsights.recentTrigger.trim(),
+          nextOpportunity: companyInsights.nextOpportunity.trim(),
+          accountNotes: companyInsights.accountNotes.trim(),
+        }
+      : undefined,
+  };
 }
 
 function LeadModal({ initial, onSave, onClose, isSaving }: {
@@ -225,6 +301,14 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
   const sectionLabelCls = "text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] mb-4 mt-6 first:mt-0 flex items-center gap-2";
   const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 text-sm font-bold text-slate-800 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 focus:bg-white transition-all duration-300";
   const labelCls = "text-[11px] font-bold text-slate-500 mb-1.5 block ml-1";
+  const updateContact = (index: number, field: keyof CompanyContactForm, value: string) => {
+    setForm((current) => ({
+      ...current,
+      contacts: current.contacts.map((contact, contactIndex) =>
+        contactIndex === index ? { ...contact, [field]: value } : contact
+      ),
+    }));
+  };
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -250,6 +334,31 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
     if (form.industrySelect === INDUSTRY_OTHER && !form.industryOther.trim()) {
       setFormError("Please specify the industry when you select Other.");
       return;
+    }
+    for (const contact of form.contacts) {
+      const hasAnyValue = Object.values(contact).some((value) => String(value ?? "").trim());
+      if (!hasAnyValue) continue;
+      if (!contact.firstName.trim() || !contact.email.trim()) {
+        setFormError("Each added company member needs at least a first name and email.");
+        return;
+      }
+      const contactHasDial = contact.phoneCountryCode.trim().length > 0;
+      const contactDigits = contact.phone.replace(/\D/g, "");
+      const contactHasDigits = contactDigits.length > 0;
+      if (contactHasDial !== contactHasDigits) {
+        setFormError(`Complete both phone fields for ${contact.firstName.trim()} or leave both empty.`);
+        return;
+      }
+      if (contactHasDigits) {
+        if (!/^\+\d{1,4}$/.test(contact.phoneCountryCode.trim())) {
+          setFormError(`Invalid country calling code for ${contact.firstName.trim()}.`);
+          return;
+        }
+        if (contactDigits.length < 4 || contactDigits.length > 15) {
+          setFormError(`Phone must be between 4 and 15 digits for ${contact.firstName.trim()}.`);
+          return;
+        }
+      }
     }
     onSave({ ...form, phone: digits, phoneCountryCode: dial });
   };
@@ -366,7 +475,153 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                   />
                 </div>
               )}
+              <div>
+                <label className={labelCls}>Hiring / expansion signal</label>
+                <input
+                  className={inputCls}
+                  value={form.companyInsights.hiringSignal}
+                  onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, hiringSignal: e.target.value } }))}
+                  placeholder="Hiring security team, new compliance push, new product line..."
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Recent trigger event</label>
+                <input
+                  className={inputCls}
+                  value={form.companyInsights.recentTrigger}
+                  onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, recentTrigger: e.target.value } }))}
+                  placeholder="Funding round, audit deadline, product launch..."
+                />
+              </div>
+              <div>
+                <label className={labelCls}>Next account opportunity</label>
+                <input
+                  className={inputCls}
+                  value={form.companyInsights.nextOpportunity}
+                  onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, nextOpportunity: e.target.value } }))}
+                  placeholder="Intro to infra lead, renewal in June, cross-sell testing..."
+                />
+              </div>
+              <div className="col-span-2">
+                <label className={labelCls}>Shared account notes</label>
+                <textarea
+                  className={`${inputCls} h-28 resize-none pt-4`}
+                  value={form.companyInsights.accountNotes}
+                  onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, accountNotes: e.target.value } }))}
+                  placeholder="Context that should stay visible across everyone from this company."
+                />
+              </div>
             </div>
+          </div>
+          <div>
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className={sectionLabelCls}><UserPlus2 size={14} /> Company Member Tracker</h3>
+                <p className="text-sm text-slate-500">Add new joins or stakeholders from the same company so the sales rep can follow up later.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setForm((f) => ({ ...f, contacts: [...f.contacts, emptyCompanyContact()] }))}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3 text-xs font-extrabold uppercase tracking-[0.18em] text-indigo-700 transition hover:bg-indigo-100"
+              >
+                <Plus size={14} /> Add Member
+              </button>
+            </div>
+
+            {form.contacts.length === 0 ? (
+              <div className="rounded-[2rem] border border-dashed border-slate-200 bg-slate-50/70 px-6 py-10 text-center">
+                <Sparkles size={24} className="mx-auto text-slate-300" />
+                <p className="mt-4 text-sm font-bold text-slate-500">No extra company members added yet.</p>
+                <p className="mt-1 text-xs text-slate-400">Use this when a company hires someone new or another stakeholder enters the buying group.</p>
+              </div>
+            ) : (
+              <div className="space-y-5">
+                {form.contacts.map((contact, index) => (
+                  <div key={contact.id || index} className="rounded-[2rem] border border-slate-200 bg-slate-50/70 p-5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-xs font-extrabold uppercase tracking-[0.2em] text-slate-400">Member {index + 1}</p>
+                      <button
+                        type="button"
+                        onClick={() => setForm((f) => ({ ...f, contacts: f.contacts.filter((_, currentIndex) => currentIndex !== index) }))}
+                        className="rounded-xl border border-rose-200 px-3 py-2 text-[11px] font-extrabold uppercase tracking-[0.18em] text-rose-600 transition hover:bg-rose-50"
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                      <div>
+                        <label className={labelCls}>First Name *</label>
+                        <input className={inputCls} value={contact.firstName} onChange={(e) => updateContact(index, "firstName", e.target.value)} placeholder="Ananya" />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Last Name</label>
+                        <input className={inputCls} value={contact.lastName} onChange={(e) => updateContact(index, "lastName", e.target.value)} placeholder="Sharma" />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className={labelCls}>Work Email *</label>
+                        <input className={inputCls} type="email" value={contact.email} onChange={(e) => updateContact(index, "email", e.target.value)} placeholder="name@company.com" />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Designation</label>
+                        <input className={inputCls} value={contact.designation} onChange={(e) => updateContact(index, "designation", e.target.value)} placeholder="Security Manager" />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Department</label>
+                        <input className={inputCls} value={contact.department} onChange={(e) => updateContact(index, "department", e.target.value)} placeholder="IT, Engineering, Procurement..." />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Member source</label>
+                        <input className={inputCls} value={contact.source} onChange={(e) => updateContact(index, "source", e.target.value)} placeholder="Referral, LinkedIn, website, internal intro..." />
+                      </div>
+                      <div>
+                        <label className={labelCls}>Employment stage</label>
+                        <select className={inputCls} value={contact.employmentStage} onChange={(e) => updateContact(index, "employmentStage", e.target.value)}>
+                          <option value="">Select stage</option>
+                          <option value="current">Current employee</option>
+                          <option value="joining_soon">Joining soon</option>
+                          <option value="newly_joined">Newly joined</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Country / dialing code</label>
+                        <select
+                          className={inputCls}
+                          value={contact.phoneCountryCode}
+                          onChange={(e) => updateContact(index, "phoneCountryCode", e.target.value)}
+                        >
+                          <option value="">Select country (optional)</option>
+                          {PHONE_COUNTRY_OPTIONS.map((o) => (
+                            <option key={`${o.dial}-${o.name}`} value={o.dial}>
+                              {o.name} ({o.dial})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={labelCls}>Phone (digits only)</label>
+                        <input
+                          className={inputCls}
+                          inputMode="numeric"
+                          value={contact.phone}
+                          onChange={(e) => updateContact(index, "phone", e.target.value.replace(/\D/g, ""))}
+                          placeholder="9876543210"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className={labelCls}>Notes for follow-up</label>
+                        <textarea
+                          className={`${inputCls} h-24 resize-none pt-4`}
+                          value={contact.notes}
+                          onChange={(e) => updateContact(index, "notes", e.target.value)}
+                          placeholder="Why this person matters, when they are joining, or what to mention in follow-up."
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <h3 className={sectionLabelCls}><Briefcase size={14} /> Pipeline Strategy</h3>
@@ -772,7 +1027,16 @@ export default function LeadsPage() {
                       </td>
                       <td className="px-10 py-6 hidden md:table-cell">
                         <div className="space-y-0.5">
-                          <p className="text-xs font-bold text-slate-700 uppercase">{lead.company ?? "Privately Held"}</p>
+                          {lead.company ? (
+                            <Link
+                              href={`/companies/${encodeURIComponent(lead.company.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, ""))}`}
+                              className="text-xs font-bold uppercase text-slate-700 transition hover:text-indigo-700"
+                            >
+                              {lead.company}
+                            </Link>
+                          ) : (
+                            <p className="text-xs font-bold text-slate-700 uppercase">Privately Held</p>
+                          )}
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{lead.industry || "—"}</p>
                         </div>
                       </td>

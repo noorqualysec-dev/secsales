@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/app/components/layout/Sidebar";
 import { Header } from "@/app/components/layout/Header";
@@ -10,6 +10,7 @@ const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
   "/tasks": "Tasks",
   "/leads": "Leads",
+  "/companies": "Companies",
   "/proposals": "Proposals",
 };
 
@@ -17,11 +18,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, loading, logout } = useAuth();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setSidebarOpen(false);
-  }, [pathname]);
 
   if (loading) {
     return (
@@ -34,7 +30,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  const pageTitle = pageTitles[pathname] ?? "Dashboard";
+  const pageTitle =
+    Object.entries(pageTitles).find(([route]) => pathname === route || pathname.startsWith(`${route}/`))?.[1] ??
+    "Dashboard";
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">

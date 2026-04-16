@@ -40,6 +40,42 @@ export interface TimelineEvent {
   timestamp: string;
 }
 
+export interface LeadContact {
+  id: string;
+  firstName: string;
+  lastName: string;
+  fullName?: string;
+  email: string;
+  phone?: string;
+  phoneCountryCode?: string;
+  designation?: string;
+  department?: string;
+  isPrimary?: boolean;
+  isDecisionMaker?: boolean;
+  isInfluencer?: boolean;
+  isTechnicalContact?: boolean;
+  isBillingContact?: boolean;
+  linkedinUrl?: string;
+  notes?: string;
+  source?: string;
+  addedAt: number;
+  updatedAt: number;
+  addedBy: string;
+  lastContactedAt?: number;
+  nextFollowUpAt?: number;
+  contactStatus?: "active" | "inactive" | "unresponsive" | "left_company";
+  preferredChannel?: "email" | "phone" | "whatsapp" | "linkedin";
+  employmentStage?: "current" | "joining_soon" | "newly_joined";
+  joinedOn?: number;
+}
+
+export interface CompanyInsights {
+  hiringSignal?: string;
+  recentTrigger?: string;
+  nextOpportunity?: string;
+  accountNotes?: string;
+}
+
 export interface Lead {
   _id: string;
   firstName: string;
@@ -62,6 +98,54 @@ export interface Lead {
   dealValue?: number;
   createdAt: string;
   updatedAt: string;
+  contacts?: LeadContact[];
+  companyInsights?: CompanyInsights;
+}
+
+export interface CompanySummary {
+  key: string;
+  name: string;
+  industry?: string;
+  country?: string;
+  employeeStrength?: string;
+  leadCount: number;
+  memberCount: number;
+  openOpportunities: number;
+  lastUpdatedAt: number;
+  owners: Array<{ _id: string; name: string }>;
+}
+
+export interface CompanyMember {
+  contactId: string;
+  leadId: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  designation?: string;
+  department?: string;
+  phone?: string;
+  phoneCountryCode?: string;
+  status?: string;
+  source?: string;
+  type: "lead" | "contact";
+  preferredChannel?: string;
+  employmentStage?: string;
+  joinedOn?: number;
+  notes?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface CompanyDetails {
+  key: string;
+  name: string;
+  industry?: string;
+  country?: string;
+  employeeStrength?: string;
+  companyInsights?: CompanyInsights;
+  leads: Lead[];
+  members: CompanyMember[];
 }
 
 export type ProposalStatus = "Draft" | "Sent" | "In Negotiation" | "Accepted" | "Rejected";

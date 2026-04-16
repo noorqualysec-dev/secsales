@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, FileText, ListTodo, X } from "lucide-react";
-import { Label } from "recharts";
+import { LayoutDashboard, Users, FileText, ListTodo, X, Building2 } from "lucide-react";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tasks", label: "Tasks", icon: ListTodo },
   { href: "/kanban", label: "Lead Kanban", icon: LayoutDashboard },
   { href: "/leads", label: "Leads", icon: Users },
+  { href: "/companies", label: "Companies", icon: Building2 },
   { href: "/proposals", label: "Proposals", icon: FileText },
   { href: "/dashboard/integrations/google", label: "Google Calendar", icon: FileText },
 ];
@@ -46,7 +46,7 @@ export function Sidebar({ onClose }: SidebarProps) {
           Main Menu
         </p>
         {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href;
+          const isActive = pathname === href || pathname.startsWith(`${href}/`);
           return (
             <Link
               key={href}
