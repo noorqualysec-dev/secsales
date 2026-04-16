@@ -32,10 +32,23 @@ export type LeadSource =
   | "offline_source"
   | "other";
 
+export type LeadRegion =
+  | "India"
+  | "Middle-East"
+  | "North-America"
+  | "SouthEast-Asia"
+  | "Australia"
+  | "South-America";
+
+export type LeadOutcome = "open" | "won" | "lost" | "cancelled";
+
 export interface TimelineEvent {
   event: string;
   status?: string;
+  previousStatus?: string;
+  outcome?: LeadOutcome;
   remark?: string;
+  reason?: string;
   performedBy: User | string;
   timestamp: string;
 }
@@ -87,8 +100,17 @@ export interface Lead {
   phoneCountryCode?: string;
   company?: string;
   country?: string;
+  region?: LeadRegion;
   industry?: string;
   status: LeadStatus;
+  outcome?: LeadOutcome;
+  lostAtStatus?: LeadStatus;
+  wonAtStatus?: LeadStatus;
+  closedAt?: number;
+  lostReason?: string;
+  wonReason?: string;
+  cancellationReason?: string;
+  wasEverWon?: boolean;
   latestRemark?: string;
   source: LeadSource;
   assignedTo?: User | string;

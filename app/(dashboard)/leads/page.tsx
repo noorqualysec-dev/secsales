@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useBulkImportLeads } from "@/app/hooks/useLeads";
 import type { LeadPayload } from "@/app/hooks/useLeads";
-import type { Lead, LeadStatus, LeadSource, LeadContact } from "@/app/types";
+import type { Lead, LeadStatus, LeadSource, LeadContact, LeadOutcome, LeadRegion } from "@/app/types";
 import Papa from "papaparse";
 import {
   Plus, Pencil, Trash2, X, CheckCircle2, Eye,
@@ -16,7 +16,7 @@ import Link from "next/link";
 const LEAD_STATUSES: LeadStatus[] = [
   "Lead Captured", "Discovery Call Scheduled", "Requirement Gathering",
   "Pre-Assessment Form Sent", "Proposal Preparation", "Proposal Sent",
-  "Negotiation", "Won", "Lost",
+  "Negotiation",
 ];
 
 const LEAD_SOURCES: LeadSource[] = [
@@ -25,6 +25,14 @@ const LEAD_SOURCES: LeadSource[] = [
 ];
 
 const EMPLOYEE_STRENGTHS = ["1-10", "11-50", "51-200", "201-500", "501-1000", "1000+"];
+const LEAD_REGIONS: LeadRegion[] = [
+  "India",
+  "Middle-East",
+  "North-America",
+  "SouthEast-Asia",
+  "Australia",
+  "South-America",
+];
 
 /** Match backend LEAD_INDUSTRY_PRESETS */
 const LEAD_INDUSTRY_PRESETS = [
@@ -80,6 +88,22 @@ const statusColors: Record<string, string> = {
   "Lost": "bg-rose-50 text-rose-600 border-rose-100",
 };
 
+function getLeadOutcome(lead: Lead): LeadOutcome {
+  if (lead.outcome === "won" || lead.outcome === "lost" || lead.outcome === "cancelled") {
+    return lead.outcome;
+  }
+  if (lead.status === "Won") return "won";
+  if (lead.status === "Lost") return "lost";
+  return "open";
+}
+
+function getLeadStage(lead: Lead): LeadStatus {
+  if (lead.status !== "Won" && lead.status !== "Lost") {
+    return lead.status;
+  }
+  return lead.lostAtStatus || lead.wonAtStatus || "Lead Captured";
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function exportLeadsToCSV(leads: Lead[]) {
@@ -91,14 +115,14 @@ function exportLeadsToCSV(leads: Lead[]) {
   };
   const headers = [
     "First Name", "Last Name", "Email", "Phone", "Designation",
-    "Company", "Industry", "Country", "Employee Strength",
+    "Company", "Industry", "Country", "Region", "Employee Strength",
     "Status", "Source", "Deal Value", "Closing Date", "Remarks",
   ];
   const rows = leads.map((l: Lead) => [
     l.firstName, l.lastName, l.email,
     l.phoneCountryCode && l.phone ? `${l.phoneCountryCode}${l.phone}` : (l.phone ?? ""),
     l.designation ?? "", l.company ?? "", l.industry ?? "",
-    l.country ?? "", l.employeeStrength ?? "",
+    l.country ?? "", l.region ?? "", l.employeeStrength ?? "",
     l.status, l.source,
     l.dealValue ?? "",
     l.closingDate ? new Date(l.closingDate).toISOString().split("T")[0] : "",
@@ -123,6 +147,7 @@ const CSV_FIELD_MAP: Record<string, string> = {
   "designation": "designation", "title": "designation", "job title": "designation",
   "industry": "industry", "industry sector": "industry",
   "country": "country",
+  "region": "region",
   "employee strength": "employeeStrength", "employees": "employeeStrength", "employee_strength": "employeeStrength",
   "status": "status", "pipeline state": "status",
   "source": "source", "lead source": "source",
@@ -153,9 +178,12 @@ const emptyForm = {
   firstName: "", lastName: "", email: "",
   phoneCountryCode: "", phone: "",
   company: "", country: "",
+  region: "" as LeadRegion | "",
   industrySelect: "", industryOther: "",
   designation: "", employeeStrength: "",
   status: "Lead Captured" as LeadStatus,
+  outcome: "open" as LeadOutcome,
+  lostReason: "",
   source: "website" as LeadSource,
   latestRemark: "",
   closingDate: 0,
@@ -239,9 +267,12 @@ function leadToFormInitial(lead: Lead): LeadForm {
     phone,
     company: lead.company ?? "",
     country,
+    region: lead.region ?? "",
     industrySelect,
     industryOther,
-    status: lead.status,
+    status: getLeadStage(lead),
+    outcome: getLeadOutcome(lead),
+    lostReason: lead.lostReason ?? "",
     source: lead.source,
     designation: lead.designation ?? "",
     employeeStrength: lead.employeeStrength ?? "",
@@ -259,13 +290,16 @@ function leadToFormInitial(lead: Lead): LeadForm {
 }
 
 function formToApiPayload(form: LeadForm): LeadPayload {
-  const { industrySelect, industryOther, contacts, companyInsights, ...rest } = form;
+  const { industrySelect, industryOther, contacts, companyInsights, lostReason, ...rest } = form;
   const industry =
     industrySelect === INDUSTRY_OTHER
       ? industryOther.trim()
       : industrySelect.trim();
+  const normalizedLostReason = lostReason.trim();
   return {
     ...rest,
+    region: rest.region || undefined,
+    lostReason: rest.outcome === "lost" ? normalizedLostReason : undefined,
     industry: industry || undefined,
     contacts: contacts
       .map((contact) => ({
@@ -360,7 +394,18 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
         }
       }
     }
-    onSave({ ...form, phone: digits, phoneCountryCode: dial });
+    if (form.outcome === "lost" && !form.lostReason.trim()) {
+      setFormError("Please add a loss note before marking this lead as lost.");
+      return;
+    }
+    onSave({
+      ...form,
+      phone: digits,
+      phoneCountryCode: dial,
+      latestRemark: form.outcome === "lost" && !form.latestRemark.trim()
+        ? form.lostReason.trim()
+        : form.latestRemark,
+    });
   };
 
   return (
@@ -452,6 +497,15 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                 <select className={inputCls} value={form.employeeStrength} onChange={set("employeeStrength")}>
                   <option value="">Select Scale</option>
                   {EMPLOYEE_STRENGTHS.map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className={labelCls}>Region</label>
+                <select className={inputCls} value={form.region} onChange={set("region")}>
+                  <option value="">Select region</option>
+                  {LEAD_REGIONS.map((region) => (
+                    <option key={region} value={region}>{region}</option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -633,6 +687,36 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                 </select>
               </div>
               <div>
+                <label className={labelCls}>Lead Outcome</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, outcome: "open", lostReason: "" }))}
+                    className={`rounded-2xl border px-4 py-3 text-xs font-extrabold uppercase tracking-[0.18em] transition ${
+                      form.outcome === "open"
+                        ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-indigo-200"
+                    }`}
+                  >
+                    Keep Open
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setForm((f) => ({ ...f, outcome: "lost" }))}
+                    className={`rounded-2xl border px-4 py-3 text-xs font-extrabold uppercase tracking-[0.18em] transition ${
+                      form.outcome === "lost"
+                        ? "border-rose-500 bg-rose-50 text-rose-700"
+                        : "border-slate-200 bg-white text-slate-500 hover:border-rose-200"
+                    }`}
+                  >
+                    Mark Lost
+                  </button>
+                </div>
+                <p className="mt-2 text-[11px] font-bold text-slate-400">
+                  The stage stays selected above. Marking lost closes the lead at that stage for analytics.
+                </p>
+              </div>
+              <div>
                 <label className={labelCls}>Discovery Source</label>
                 <select className={inputCls} value={form.source} onChange={set("source")}>
                   {LEAD_SOURCES.map(s => <option key={s} value={s}>{s.replace(/_/g, " ").toUpperCase()}</option>)}
@@ -655,6 +739,17 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                   placeholder="Enter strategic notes about this state change..."
                 />
               </div>
+              {form.outcome === "lost" && (
+                <div className="col-span-2">
+                  <label className={labelCls}>Loss Note *</label>
+                  <textarea
+                    className={`${inputCls} h-28 resize-none pt-4 border-rose-200 bg-rose-50/40 focus:ring-rose-50 focus:border-rose-500`}
+                    value={form.lostReason}
+                    onChange={set("lostReason")}
+                    placeholder="Why is this lead being marked lost? Add the reason so admin analytics can report it clearly."
+                  />
+                </div>
+              )}
             </div>
           </div>
           {formError && (
@@ -1010,12 +1105,31 @@ export default function LeadsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {leads.map((lead: Lead) => (
+                  {leads.map((lead: Lead) => {
+                    const outcome = getLeadOutcome(lead);
+                    const stage = getLeadStage(lead);
+                    const badgeKey = outcome === "won" ? "Won" : outcome === "lost" ? "Lost" : stage;
+                    const badgeClass = statusColors[badgeKey] || "bg-slate-50 text-slate-600 border-slate-100";
+                    const dotClass = badgeClass.split(" ")[1]?.replace("text-", "bg-") || "bg-slate-500";
+                    const stageLabel = outcome === "won"
+                      ? `Won at ${stage}`
+                      : outcome === "lost"
+                        ? `Lost at ${stage}`
+                        : stage;
+                    const notePreview = outcome === "lost"
+                      ? (lead.lostReason || lead.latestRemark || "Marked lost with no note.")
+                      : (lead.latestRemark || "No remarks recorded.");
+
+                    return (
                     <tr key={lead._id} className="hover:bg-slate-50/80 transition-all duration-300 group">
                       <td className="px-10 py-6">
                         <div className="flex items-center gap-4">
                           <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-xl font-black border transition-all duration-500 group-hover:scale-110 group-hover:-rotate-3 ${
-                            lead.status === "Won" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-indigo-50 text-indigo-600 border-indigo-100"
+                            outcome === "won"
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-100"
+                              : outcome === "lost"
+                                ? "bg-rose-50 text-rose-600 border-rose-100"
+                                : "bg-indigo-50 text-indigo-600 border-indigo-100"
                           }`}>
                             {lead.firstName[0]}
                           </div>
@@ -1041,16 +1155,14 @@ export default function LeadsPage() {
                         </div>
                       </td>
                       <td className="px-10 py-6">
-                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm transition-all duration-500 group-hover:scale-105 ${
-                          statusColors[lead.status] || "bg-slate-50 text-slate-600 border-slate-100"
-                        }`}>
-                          <div className={`w-1.5 h-1.5 rounded-full ${statusColors[lead.status]?.split(" ")[1].replace("text-", "bg-")}`} />
-                          {lead.status}
+                        <span className={`inline-flex items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-widest px-3 py-1.5 rounded-full border shadow-sm transition-all duration-500 group-hover:scale-105 ${badgeClass}`}>
+                          <div className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
+                          {stageLabel}
                         </span>
                       </td>
                       <td className="px-10 py-6 hidden lg:table-cell max-w-[200px]">
-                        <p className="text-xs font-medium text-slate-500 italic truncate" title={lead.latestRemark}>
-                          {lead.latestRemark ? `"${lead.latestRemark}"` : "No remarks recorded."}
+                        <p className="text-xs font-medium text-slate-500 italic truncate" title={notePreview}>
+                          {notePreview ? `"${notePreview}"` : "No remarks recorded."}
                         </p>
                       </td>
                       <td className="px-10 py-6">
@@ -1078,7 +1190,7 @@ export default function LeadsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>

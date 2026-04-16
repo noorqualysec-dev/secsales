@@ -33,11 +33,12 @@ import {
   Eye,
   Briefcase,
   Database,
-  GripVertical
+  GripVertical,
+  X
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useMemo, useCallback, useEffect, memo } from "react";
-import type { Lead, LeadStatus } from "@/app/types";
+import type { Lead, LeadOutcome, LeadStatus } from "@/app/types";
 
 const STAGES: LeadStatus[] = [
   "Lead Captured",
@@ -47,9 +48,10 @@ const STAGES: LeadStatus[] = [
   "Proposal Preparation",
   "Proposal Sent",
   "Negotiation",
-  "Won",
-  "Lost"
 ];
+
+const BOARD_COLUMNS = [...STAGES, "Won", "Lost"] as const;
+type BoardColumn = typeof BOARD_COLUMNS[number];
 
 const STAGE_COLORS: Record<string, string> = {
   "Lead Captured": "bg-slate-500",
@@ -63,6 +65,35 @@ const STAGE_COLORS: Record<string, string> = {
   "Lost": "bg-rose-500"
 };
 
+function getLeadOutcome(lead: Lead): LeadOutcome {
+  if (lead.outcome === "won" || lead.outcome === "lost" || lead.outcome === "cancelled") {
+    return lead.outcome;
+  }
+  if (lead.status === "Won") return "won";
+  if (lead.status === "Lost") return "lost";
+  return "open";
+}
+
+function getLeadStage(lead: Lead): LeadStatus {
+  if (lead.status !== "Won" && lead.status !== "Lost") {
+    return lead.status;
+  }
+  return lead.lostAtStatus || lead.wonAtStatus || "Lead Captured";
+}
+
+function getBoardColumn(lead: Lead): BoardColumn {
+  const outcome = getLeadOutcome(lead);
+  if (outcome === "won") return "Won";
+  if (outcome === "lost") return "Lost";
+  return getLeadStage(lead);
+}
+
+function applyBoardColumn(lead: Lead, column: BoardColumn): Lead {
+  if (column === "Won") return { ...lead, outcome: "won" };
+  if (column === "Lost") return { ...lead, outcome: "lost" };
+  return { ...lead, status: column, outcome: "open" };
+}
+
 const dropAnimation: DropAnimation = {
   sideEffects: defaultDropAnimationSideEffects({
     styles: {
@@ -75,7 +106,7 @@ const dropAnimation: DropAnimation = {
 
 // --- Sub-components (Memoized) ---
 
-const KanbanCard = memo(({ lead, isOverlay }: { lead: Lead; isOverlay?: boolean }) => {
+const KanbanCard = memo(({ lead, isOverlay, onOpen }: { lead: Lead; isOverlay?: boolean; onOpen?: (lead: Lead) => void }) => {
   const {
     attributes,
     listeners,
@@ -95,16 +126,18 @@ const KanbanCard = memo(({ lead, isOverlay }: { lead: Lead; isOverlay?: boolean 
     transition,
     transform: CSS.Translate.toString(transform),
   };
+  const column = getBoardColumn(lead);
 
   const cardContent = (
     <div
+      onClick={!isOverlay ? () => onOpen?.(lead) : undefined}
       className={`bg-white border rounded-3xl p-5 shadow-sm hover:shadow-xl transition-all group relative ${
         isDragging ? "opacity-30 border-indigo-200" : "border-slate-100"
       } ${isOverlay ? "shadow-2xl ring-2 ring-indigo-500 scale-105 cursor-grabbing" : "cursor-grab"}`}
     >
       <div className="flex items-start justify-between mb-4 relative z-10">
         <div className="flex items-center gap-3">
-          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${STAGE_COLORS[lead.status]} group-hover:scale-110 transition`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-lg ${STAGE_COLORS[column]} group-hover:scale-110 transition`}>
             {lead.firstName?.[0] || 'L'}
           </div>
           <div>
@@ -118,10 +151,11 @@ const KanbanCard = memo(({ lead, isOverlay }: { lead: Lead; isOverlay?: boolean 
         </div>
         {!isOverlay && (
           <div className="flex items-center gap-1">
-             <div {...attributes} {...listeners} className="p-2 text-slate-300 hover:text-indigo-600 cursor-grab active:cursor-grabbing transition">
+             <div {...attributes} {...listeners} onClick={(e) => e.stopPropagation()} className="p-2 text-slate-300 hover:text-indigo-600 cursor-grab active:cursor-grabbing transition">
                <GripVertical size={18} />
             </div>
             <Link 
+                onClick={(e) => e.stopPropagation()}
                 href={`/admin/leads/${lead._id}`}
                 className="p-2 bg-slate-50 text-slate-400 rounded-lg hover:bg-indigo-600 hover:text-white transition active:scale-90"
             >
@@ -132,6 +166,9 @@ const KanbanCard = memo(({ lead, isOverlay }: { lead: Lead; isOverlay?: boolean 
       </div>
 
       <div className="space-y-3 relative z-10">
+        <div className="inline-flex rounded-full bg-slate-50 px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-slate-500 border border-slate-100">
+          {column}
+        </div>
         <div className="flex items-center gap-3 text-slate-500">
           <Mail size={12} className="opacity-40" />
           <span className="text-[10px] font-bold truncate">{lead.email}</span>
@@ -161,10 +198,11 @@ const KanbanCard = memo(({ lead, isOverlay }: { lead: Lead; isOverlay?: boolean 
   );
 });
 
-const KanbanColumn = memo(({ stage, leads }: { stage: LeadStatus; leads: Lead[] }) => {
+const KanbanColumn = memo(({ stage, leads, onOpen }: { stage: BoardColumn; leads: Lead[]; onOpen: (lead: Lead) => void }) => {
   const { setNodeRef } = useDroppable({
     id: stage,
   });
+  const isOutcomeColumn = stage === "Won" || stage === "Lost";
 
   return (
     <div ref={setNodeRef} className="w-80 flex flex-col gap-4">
@@ -181,10 +219,12 @@ const KanbanColumn = memo(({ stage, leads }: { stage: LeadStatus; leads: Lead[] 
       </div>
 
       <SortableContext id={stage} items={leads.map(l => l._id)} strategy={verticalListSortingStrategy}>
-        <div className="flex-1 rounded-4xl p-4 bg-slate-50/50 border-2 border-dashed border-transparent transition-all duration-300 min-h-[500px]">
+        <div className={`flex-1 rounded-4xl p-4 border-2 border-dashed transition-all duration-300 min-h-[500px] ${
+          isOutcomeColumn ? "bg-slate-50/30 border-slate-100" : "bg-slate-50/50 border-transparent"
+        }`}>
           <div className="space-y-4">
             {leads.map((lead) => (
-              <KanbanCard key={lead._id} lead={lead} />
+              <KanbanCard key={lead._id} lead={lead} onOpen={onOpen} />
             ))}
           </div>
         </div>
@@ -193,11 +233,106 @@ const KanbanColumn = memo(({ stage, leads }: { stage: LeadStatus; leads: Lead[] 
   );
 });
 
+function OutcomeModal({
+  lead,
+  onSave,
+  onClose,
+  isSaving,
+}: {
+  lead: Lead;
+  onSave: (payload: { status: LeadStatus; outcome: LeadOutcome; lostReason?: string; latestRemark?: string }) => void;
+  onClose: () => void;
+  isSaving: boolean;
+}) {
+  const [status, setStatus] = useState<LeadStatus>(getLeadStage(lead));
+  const [outcome, setOutcome] = useState<LeadOutcome>(getLeadOutcome(lead));
+  const [latestRemark, setLatestRemark] = useState("");
+  const [lostReason, setLostReason] = useState(lead.lostReason ?? "");
+  const inputCls = "w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold focus:ring-4 focus:ring-indigo-50 focus:border-indigo-500 transition-all";
+
+  return (
+    <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-100 flex items-center justify-center p-4">
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-lg animate-scale-in">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Admin Lead Update</h3>
+            <p className="mt-1 text-xs font-bold text-slate-400">{lead.firstName} {lead.lastName}</p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-slate-50 rounded-xl transition"><X size={18} /></button>
+        </div>
+        <div className="p-8 space-y-5">
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Pipeline Stage</label>
+            <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as LeadStatus)}>
+              {STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block">Outcome</label>
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { key: "open", label: "Open", cls: "border-indigo-500 bg-indigo-50 text-indigo-700" },
+                { key: "won", label: "Won", cls: "border-emerald-500 bg-emerald-50 text-emerald-700" },
+                { key: "lost", label: "Lost", cls: "border-rose-500 bg-rose-50 text-rose-700" },
+              ].map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  onClick={() => setOutcome(item.key as LeadOutcome)}
+                  className={`rounded-2xl border px-3 py-3 text-[11px] font-black uppercase tracking-widest transition ${
+                    outcome === item.key ? item.cls : "border-slate-200 text-slate-500 hover:border-slate-300"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          {outcome === "lost" && (
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Loss Note</label>
+              <textarea
+                className={`${inputCls} min-h-28 resize-none border-rose-200 bg-rose-50/40 focus:ring-rose-50 focus:border-rose-500`}
+                value={lostReason}
+                onChange={(e) => setLostReason(e.target.value)}
+                placeholder="Optional admin loss note."
+              />
+            </div>
+          )}
+          <div>
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Update Note</label>
+            <textarea
+              className={`${inputCls} min-h-24 resize-none`}
+              value={latestRemark}
+              onChange={(e) => setLatestRemark(e.target.value)}
+              placeholder="Optional note for the timeline."
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => onSave({
+              status,
+              outcome,
+              lostReason: outcome === "lost" ? lostReason.trim() || undefined : undefined,
+              latestRemark: latestRemark.trim() || undefined,
+            })}
+            disabled={isSaving}
+            className="w-full py-4 bg-indigo-600 hover:bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-indigo-500/10 disabled:opacity-50"
+          >
+            {isSaving ? "Saving..." : "Save Update"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function AdminKanbanPage() {
   const { data: leadsData, isLoading } = useAdminLeads();
   const updateStatus = useUpdateLeadStatus();
   const [search, setSearch] = useState("");
   const [activeLead, setActiveLead] = useState<Lead | null>(null);
+  const [editingLead, setEditingLead] = useState<Lead | null>(null);
   const [localLeads, setLocalLeads] = useState<Lead[]>([]);
 
   useEffect(() => {
@@ -213,12 +348,13 @@ export default function AdminKanbanPage() {
 
   const columns = useMemo(() => {
     const cols: Record<string, Lead[]> = {};
-    STAGES.forEach(s => cols[s] = []);
+    BOARD_COLUMNS.forEach(s => cols[s] = []);
     localLeads.filter(l => 
       `${l.firstName} ${l.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
       l.company?.toLowerCase().includes(search.toLowerCase())
     ).forEach(l => {
-      if (cols[l.status]) cols[l.status].push(l);
+      const column = getBoardColumn(l);
+      if (cols[column]) cols[column].push(l);
     });
     return cols;
   }, [localLeads, search]);
@@ -249,17 +385,18 @@ export default function AdminKanbanPage() {
       if (isOverACard) {
         const overIdx = prev.findIndex(l => l._id === overId);
         const overLead = prev[overIdx];
-        if (activeL.status !== overLead.status) {
-          const updated = { ...activeL, status: overLead.status };
+        const overColumn = getBoardColumn(overLead);
+        if (getBoardColumn(activeL) !== overColumn && overColumn !== "Won" && overColumn !== "Lost") {
+          const updated = applyBoardColumn(activeL, overColumn);
           const newList = [...prev];
           newList[activeIdx] = updated;
           return arrayMove(newList, activeIdx, overIdx);
         }
       }
 
-      const isOverAColumn = STAGES.includes(overId as any);
-      if (isOverAColumn && activeL.status !== overId) {
-        const updated = { ...activeL, status: overId as LeadStatus };
+      const isOverAColumn = BOARD_COLUMNS.includes(overId as BoardColumn);
+      if (isOverAColumn && overId !== "Won" && overId !== "Lost" && getBoardColumn(activeL) !== overId) {
+        const updated = applyBoardColumn(activeL, overId as BoardColumn);
         const newList = [...prev];
         newList[activeIdx] = updated;
         return arrayMove(newList, activeIdx, activeIdx);
@@ -280,17 +417,24 @@ export default function AdminKanbanPage() {
     const activeLead = localLeads.find(l => l._id === activeId);
     if (!activeLead) return;
 
-    let finalStatus: LeadStatus = activeLead.status;
-    if (STAGES.includes(overId as any)) {
-      finalStatus = overId as LeadStatus;
+    let finalColumn: BoardColumn = getBoardColumn(activeLead);
+    if (BOARD_COLUMNS.includes(overId as BoardColumn)) {
+      finalColumn = overId as BoardColumn;
     } else {
       const overLead = localLeads.find(l => l._id === overId);
-      if (overLead) finalStatus = overLead.status;
+      if (overLead) finalColumn = getBoardColumn(overLead);
     }
 
     const originalLead = leadsData?.data?.find(l => l._id === activeId);
-    if (originalLead && originalLead.status !== finalStatus) {
-      updateStatus.mutate({ leadId: activeId as string, status: finalStatus });
+    const originalColumn = originalLead ? getBoardColumn(originalLead) : getBoardColumn(activeLead);
+    if (finalColumn === "Won" || finalColumn === "Lost") {
+      setLocalLeads(leadsData?.data ?? []);
+      if (originalLead) setEditingLead(originalLead);
+      return;
+    }
+
+    if (originalLead && originalColumn !== finalColumn) {
+      updateStatus.mutate({ leadId: activeId as string, status: finalColumn, outcome: "open" });
     }
 
     if (activeId !== overId) {
@@ -315,6 +459,19 @@ export default function AdminKanbanPage() {
 
   return (
     <div className="h-[calc(100vh-140px)] flex flex-col gap-6 animate-fade-in-up">
+      {editingLead && (
+        <OutcomeModal
+          lead={editingLead}
+          isSaving={updateStatus.isPending}
+          onClose={() => setEditingLead(null)}
+          onSave={(payload) => {
+            updateStatus.mutate(
+              { leadId: editingLead._id, ...payload },
+              { onSuccess: () => setEditingLead(null) }
+            );
+          }}
+        />
+      )}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 px-2">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
@@ -343,7 +500,7 @@ export default function AdminKanbanPage() {
       <div className="flex-1 overflow-x-auto pb-6 custom-scrollbar">
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragOver={handleDragOver} onDragEnd={handleDragEnd}>
           <div className="flex gap-6 h-full min-w-max px-2">
-            {STAGES.map((stage) => <KanbanColumn key={stage} stage={stage} leads={columns[stage]} />)}
+            {BOARD_COLUMNS.map((stage) => <KanbanColumn key={stage} stage={stage} leads={columns[stage]} onOpen={setEditingLead} />)}
           </div>
           <DragOverlay dropAnimation={dropAnimation}>
             {activeLead ? <KanbanCard lead={activeLead} isOverlay /> : null}

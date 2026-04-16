@@ -11,14 +11,14 @@ import {
   TrendingUp, IndianRupee, Target, Percent, Trophy,
   BarChart3, GitMerge, PieChart as PieIcon, CheckCircle, XCircle, SlidersHorizontal,
 } from "lucide-react";
-import type { Lead, User } from "@/app/types";
+import type { Lead, LeadOutcome, LeadStatus, User } from "@/app/types";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const PIPELINE_STAGES = [
   "Lead Captured", "Discovery Call Scheduled", "Requirement Gathering",
   "Pre-Assessment Form Sent", "Proposal Preparation", "Proposal Sent",
-  "Negotiation", "Won", "Lost",
+  "Negotiation",
 ] as const;
 
 const STAGE_COLORS: Record<string, string> = {
@@ -44,6 +44,22 @@ const MONTH_RANGE_OPTIONS = [
   { label: "12M", value: 12 },
   { label: "24M", value: 24 },
 ];
+
+function getLeadOutcome(lead: Lead): LeadOutcome {
+  if (lead.outcome === "won" || lead.outcome === "lost" || lead.outcome === "cancelled") {
+    return lead.outcome;
+  }
+  if (lead.status === "Won") return "won";
+  if (lead.status === "Lost") return "lost";
+  return "open";
+}
+
+function getLeadStage(lead: Lead): LeadStatus {
+  if (lead.status !== "Won" && lead.status !== "Lost") {
+    return lead.status;
+  }
+  return lead.lostAtStatus || lead.wonAtStatus || "Lead Captured";
+}
 
 // ── Custom Tooltips ───────────────────────────────────────────────────────────
 
@@ -74,6 +90,7 @@ function FunnelTooltip({ active, payload }: any) {
     <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-xl text-xs space-y-1">
       <p className="font-extrabold text-slate-800">{d.fullStage}</p>
       <p className="text-slate-600 font-bold">{d.count} leads</p>
+      <p className="text-slate-500 font-bold">Open {d.openCount} · Won {d.wonCount} · Lost {d.lostCount}</p>
       {d.value > 0 && <p className="text-indigo-600 font-bold">₹{d.value.toLocaleString("en-IN")} pipeline</p>}
     </div>
   );
@@ -126,9 +143,9 @@ export default function AdminAnalyticsPage() {
   );
 
   // ── KPIs (filter-aware) ───────────────────────────────────────────────────
-  const wonLeads   = windowedLeads.filter(l => l.status === "Won");
-  const openLeads  = windowedLeads.filter(l => !["Won", "Lost"].includes(l.status));
-  const lostLeads  = windowedLeads.filter(l => l.status === "Lost");
+  const wonLeads   = windowedLeads.filter(l => getLeadOutcome(l) === "won");
+  const openLeads  = windowedLeads.filter(l => getLeadOutcome(l) === "open");
+  const lostLeads  = windowedLeads.filter(l => getLeadOutcome(l) === "lost");
 
   const totalRevenue  = wonLeads.reduce((s, l) => s + (l.dealValue || 0), 0);
   const pipelineValue = openLeads.reduce((s, l) => s + (l.dealValue || 0), 0);
@@ -162,7 +179,7 @@ export default function AdminAnalyticsPage() {
       const start = new Date(d.getFullYear(), d.getMonth(), 1).getTime();
       const end   = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999).getTime();
       const revenue = leads
-        .filter(l => l.status === "Won" && Number(l.updatedAt) >= start && Number(l.updatedAt) <= end)
+        .filter(l => getLeadOutcome(l) === "won" && Number(l.updatedAt) >= start && Number(l.updatedAt) <= end)
         .reduce((sum, l) => sum + (l.dealValue || 0), 0);
       return {
         month: d.toLocaleDateString("en-IN", { month: "short", year: monthRange > 12 ? "2-digit" : undefined }),
@@ -174,10 +191,8 @@ export default function AdminAnalyticsPage() {
   // ── Conversion Lost by Stage ──────────────────────────────────────────────
   const lostByStageData = useMemo(() => {
     const lostByStage: Record<string, number> = {};
-    lostLeads.forEach((lead: any) => {
-      const lostEvent = (lead.timeline || []).find((e: any) => /to \[Lost\]/.test(e.remark));
-      const match = lostEvent?.remark?.match(/from \[(.+?)\] to \[Lost\]/);
-      const stage = match?.[1] ?? "Unknown";
+    lostLeads.forEach((lead: Lead) => {
+      const stage = lead.lostAtStatus || getLeadStage(lead) || "Unknown";
       lostByStage[stage] = (lostByStage[stage] || 0) + 1;
     });
     const total = lostLeads.length || 1;
@@ -200,12 +215,18 @@ export default function AdminAnalyticsPage() {
 
   // ── Conversion Funnel (all-time) ──────────────────────────────────────────
   const funnelData = useMemo(() => {
-    return PIPELINE_STAGES.map(stage => ({
+    return PIPELINE_STAGES.map(stage => {
+      const leadsAtStage = leads.filter(l => getLeadStage(l) === stage);
+      return {
       stage: stage.length > 22 ? stage.slice(0, 20) + "…" : stage,
       fullStage: stage,
-      count: leads.filter(l => l.status === stage).length,
-      value: leads.filter(l => l.status === stage).reduce((s, l) => s + (l.dealValue || 0), 0),
-    }));
+      openCount: leadsAtStage.filter(l => getLeadOutcome(l) === "open").length,
+      wonCount: leadsAtStage.filter(l => getLeadOutcome(l) === "won").length,
+      lostCount: leadsAtStage.filter(l => getLeadOutcome(l) === "lost").length,
+      count: leadsAtStage.length,
+      value: leadsAtStage.reduce((s, l) => s + (l.dealValue || 0), 0),
+      };
+    });
   }, [leads]);
 
   // ── Rep Leaderboard ───────────────────────────────────────────────────────
@@ -217,11 +238,11 @@ export default function AdminAnalyticsPage() {
           const aid = (l.assignedTo as any)?._id || l.assignedTo;
           return aid === user._id;
         });
-        const won      = ul.filter(l => l.status === "Won");
-        const open     = ul.filter(l => !["Won", "Lost"].includes(l.status));
+        const won      = ul.filter(l => getLeadOutcome(l) === "won");
+        const open     = ul.filter(l => getLeadOutcome(l) === "open");
         const revenue  = won.reduce((s, l)  => s + (l.dealValue || 0), 0);
         const pipeline = open.reduce((s, l) => s + (l.dealValue || 0), 0);
-        const closed   = ul.filter(l => ["Won", "Lost"].includes(l.status)).length;
+        const closed   = ul.filter(l => ["won", "lost"].includes(getLeadOutcome(l))).length;
         const wr       = closed > 0 ? Math.round((won.length / closed) * 100) : 0;
         return { user, total: ul.length, won: won.length, revenue, pipeline, winRate: wr };
       })
@@ -568,14 +589,19 @@ export default function AdminAnalyticsPage() {
             />
             <RechartsTooltip content={<FunnelTooltip />} cursor={{ fill: "#f8fafc" }} />
             <Bar
-              dataKey="count"
+              dataKey="openCount"
+              stackId="funnel"
               radius={[0, 6, 6, 0]}
-              label={{ position: "right", fontSize: 11, fontWeight: 800, fill: "#94a3b8" }}
-            >
-              {funnelData.map((entry, i) => (
-                <Cell key={i} fill={STAGE_COLORS[entry.fullStage] || "#94a3b8"} />
-              ))}
-            </Bar>
+              fill="#94a3b8"
+            />
+            <Bar dataKey="wonCount" stackId="funnel" fill={STAGE_COLORS.Won} />
+            <Bar
+              dataKey="lostCount"
+              stackId="funnel"
+              radius={[0, 6, 6, 0]}
+              fill={STAGE_COLORS.Lost}
+              label={{ position: "right", fontSize: 11, fontWeight: 800, fill: "#94a3b8", valueAccessor: (entry) => `${entry.payload.count}` }}
+            />
           </BarChart>
         </ResponsiveContainer>
       </div>
