@@ -13,33 +13,25 @@ const adminPageTitles: Record<string, string> = {
   "/admin/tasks": "Task Management",
   "/admin/users": "User Management",
   "/admin/leads": "System-wide Leads",
+  "/admin/companies": "Company Accounts",
   "/admin/proposals": "Financial Monitoring",
   "/admin/team": "Team Performance",
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  // Use the isolated Admin Auth hook to prevent session conflict with Sales portal
   const { user, loading, logout } = useAdminAuth();
   const pathname = usePathname();
   const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // Close mobile sidebar on route change
-  useEffect(() => {
-    setIsSidebarOpen(false);
-  }, [pathname]);
-
-  // Admin Route Protection
   useEffect(() => {
     if (!loading && (!user || user.role !== "admin")) {
-      // Allow only the root /admin (login) to pass
       if (pathname !== "/admin") {
         router.push("/admin");
       }
     }
   }, [user, loading, pathname, router]);
 
-  // Don't show the dashboard shell on the login page itself
   if (pathname === "/admin") {
     return <>{children}</>;
   }
@@ -53,7 +45,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  // Handle unauthorized access gracefully before redirect
   if (user && user.role !== "admin") {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 p-6 text-center">
@@ -81,7 +72,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-inter antialiased">
-      {/* Mobile sidebar overlay */}
       {isSidebarOpen && (
         <div
           className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-30 lg:hidden transition-all duration-300"
@@ -89,7 +79,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         />
       )}
 
-      {/* Admin Sidebar */}
       <aside
         className={`fixed inset-y-0 left-0 z-40 transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
@@ -97,7 +86,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <AdminSidebar onClose={() => setIsSidebarOpen(false)} />
       </aside>
 
-      {/* Main content */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden relative">
         <AdminHeader
           pageTitle={pageTitle}

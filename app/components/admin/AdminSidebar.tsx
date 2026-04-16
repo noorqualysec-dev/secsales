@@ -3,18 +3,17 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Zap,
   LayoutDashboard,
   Users,
   Users2,
   Database,
   FileCheck,
   ListTodo,
-  LogOut,
   ChevronRight,
   ShieldCheck,
   UserCircle,
   BarChart3,
+  Building2,
 } from "lucide-react";
 
 interface AdminSidebarProps {
@@ -28,6 +27,7 @@ const navItems = [
   { name: "Lead Kanban",   href: "/admin/kanban",     icon: LayoutDashboard },
   { name: "Manage Users",  href: "/admin/users",      icon: Users },
   { name: "All Leads",     href: "/admin/leads",      icon: Database },
+  { name: "Companies",     href: "/admin/companies",  icon: Building2 },
   { name: "All Proposals", href: "/admin/proposals",  icon: FileCheck },
   { name: "Team",          href: "/admin/team",       icon: Users2 },
 ];
@@ -37,7 +37,6 @@ export function AdminSidebar({ onClose }: AdminSidebarProps) {
 
   return (
     <aside className="w-68 h-full bg-slate-900 text-white flex flex-col shrink-0 border-r border-slate-800 shadow-2xl">
-      {/* Admin Logo */}
       <div className="p-6 border-b border-slate-800">
         <Link href="/admin/dashboard" className="flex items-center gap-3 group">
           <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-indigo-500/20 group-hover:scale-110 transition duration-300">
@@ -50,10 +49,9 @@ export function AdminSidebar({ onClose }: AdminSidebarProps) {
         </Link>
       </div>
 
-      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto p-4 space-y-2 mt-4 custom-scrollbar">
         {navItems.map((item) => {
-          const isActive = pathname === item.href;
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
 
           return (
@@ -79,7 +77,6 @@ export function AdminSidebar({ onClose }: AdminSidebarProps) {
         })}
       </nav>
 
-      {/* Admin Profile Footer */}
       <div className="p-4 border-t border-slate-800 bg-slate-950/40">
         <div className="bg-slate-800/40 p-4 rounded-2xl flex items-center gap-3">
           <div className="w-10 h-10 bg-slate-700 rounded-full flex items-center justify-center border border-slate-600">
