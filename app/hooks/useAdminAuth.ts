@@ -3,6 +3,19 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import type { User } from "@/app/types";
+import { canAccessAdminPortal } from "@/app/utils/permissions";
+import {
+  ADMIN_AUTH_EVENT,
+  ADMIN_TOKEN_KEY,
+  ADMIN_USER_KEY,
+  PRIMARY_AUTH_EVENT,
+  PRIMARY_TOKEN_KEY,
+  PRIMARY_USER_KEY,
+  clearAdminSession,
+  clearPrimarySession,
+  persistAdminSession,
+  readStoredUser,
+} from "@/app/utils/session";
 
 // This hook uses separate storage keys to prevent session bleeding between Admin and Sales portals
 export function useAdminAuth(automaticRedirect: boolean = true) {
@@ -12,36 +25,40 @@ export function useAdminAuth(automaticRedirect: boolean = true) {
   const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const checkAuth = () => {
-    // Admin specific keys
-    const storedToken = localStorage.getItem("admin_token");
-    const storedUser = localStorage.getItem("admin_user");
+  const applySession = (nextToken: string, nextUser: User) => {
+    setToken(nextToken);
+    setUser(nextUser);
+    setLoading(false);
+  };
 
-    if (!storedToken) {
-      if (automaticRedirect && pathname !== "/admin") {
-        router.replace("/admin");
-      }
-      setUser(null);
-      setToken(null);
-      setLoading(false);
+  const checkAuth = () => {
+    const storedAdminToken = localStorage.getItem(ADMIN_TOKEN_KEY);
+    const storedAdminUser = readStoredUser(localStorage.getItem(ADMIN_USER_KEY));
+
+    if (storedAdminToken && storedAdminUser && canAccessAdminPortal(storedAdminUser.role)) {
+      applySession(storedAdminToken, storedAdminUser);
       return;
     }
 
-    setToken(storedToken);
-    if (storedUser) {
-      try {
-        const parsed = JSON.parse(storedUser);
-        // Ensure it's actually an admin session
-        if (parsed.role !== "admin") {
-           throw new Error("Not an admin session");
-        }
-        setUser(parsed);
-      } catch {
-        setUser(null);
-        localStorage.removeItem("admin_token");
-        localStorage.removeItem("admin_user");
-      }
+    if (storedAdminToken || localStorage.getItem(ADMIN_USER_KEY)) {
+      clearAdminSession(false);
     }
+
+    const storedPrimaryToken = localStorage.getItem(PRIMARY_TOKEN_KEY);
+    const storedPrimaryUser = readStoredUser(localStorage.getItem(PRIMARY_USER_KEY));
+
+    if (storedPrimaryToken && storedPrimaryUser && canAccessAdminPortal(storedPrimaryUser.role)) {
+      persistAdminSession(storedPrimaryToken, storedPrimaryUser, false);
+      applySession(storedPrimaryToken, storedPrimaryUser);
+      return;
+    }
+
+    if (automaticRedirect && pathname !== "/admin") {
+      router.replace("/admin");
+    }
+
+    setUser(null);
+    setToken(null);
     setLoading(false);
   };
 
@@ -50,18 +67,21 @@ export function useAdminAuth(automaticRedirect: boolean = true) {
 
     const handleStorage = () => checkAuth();
     window.addEventListener("storage", handleStorage);
-    window.addEventListener("admin-auth-change", handleStorage);
+    window.addEventListener(ADMIN_AUTH_EVENT, handleStorage);
+    window.addEventListener(PRIMARY_AUTH_EVENT, handleStorage);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("admin-auth-change", handleStorage);
+      window.removeEventListener(ADMIN_AUTH_EVENT, handleStorage);
+      window.removeEventListener(PRIMARY_AUTH_EVENT, handleStorage);
     };
   }, [router, automaticRedirect, pathname]);
 
   const logout = () => {
-    localStorage.removeItem("admin_token");
-    localStorage.removeItem("admin_user");
-    window.dispatchEvent(new Event("admin-auth-change"));
+    clearAdminSession(false);
+    clearPrimarySession(false);
+    window.dispatchEvent(new Event(ADMIN_AUTH_EVENT));
+    window.dispatchEvent(new Event(PRIMARY_AUTH_EVENT));
     router.replace("/admin");
   };
 

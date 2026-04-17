@@ -21,6 +21,7 @@ import {
   useTasks,
   useUpdateTask,
 } from "@/app/hooks/useProductivity";
+import { canAccessAdminPortal } from "@/app/utils/permissions";
 import type { Lead, Task, TaskPriority, TaskStatus, User } from "@/app/types";
 
 const TASK_STATUSES: TaskStatus[] = [
@@ -263,7 +264,7 @@ export function TasksWorkspace({
   users?: User[];
   adminView?: boolean;
 }) {
-  const canAssign = adminView || currentUser?.role === "admin" || currentUser?.role === "manager";
+  const canAssign = adminView || canAccessAdminPortal(currentUser?.role);
   const assignableUsers = useMemo(
     () => users.filter((user) => user.role === "sales_rep" || user.role === "manager"),
     [users]

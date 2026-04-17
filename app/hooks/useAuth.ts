@@ -3,6 +3,15 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { User } from "@/app/types";
+import {
+  ADMIN_AUTH_EVENT,
+  PRIMARY_AUTH_EVENT,
+  PRIMARY_TOKEN_KEY,
+  PRIMARY_USER_KEY,
+  clearAdminSession,
+  clearPrimarySession,
+  readStoredUser,
+} from "@/app/utils/session";
 
 export function useAuth(automaticRedirect: boolean = true) {
   const router = useRouter();
@@ -11,8 +20,8 @@ export function useAuth(automaticRedirect: boolean = true) {
   const [loading, setLoading] = useState(true);
 
   const checkAuth = () => {
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
+    const storedToken = localStorage.getItem(PRIMARY_TOKEN_KEY);
+    const storedUser = localStorage.getItem(PRIMARY_USER_KEY);
 
     if (!storedToken) {
       if (automaticRedirect) {
@@ -25,13 +34,7 @@ export function useAuth(automaticRedirect: boolean = true) {
     }
 
     setToken(storedToken);
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch {
-        setUser(null);
-      }
-    }
+    setUser(readStoredUser(storedUser));
     setLoading(false);
   };
 
@@ -43,18 +46,21 @@ export function useAuth(automaticRedirect: boolean = true) {
     window.addEventListener("storage", handleStorage);
     
     // Also listen for a custom event we can trigger manually
-    window.addEventListener("auth-change", handleStorage);
+    window.addEventListener(PRIMARY_AUTH_EVENT, handleStorage);
+    window.addEventListener(ADMIN_AUTH_EVENT, handleStorage);
 
     return () => {
       window.removeEventListener("storage", handleStorage);
-      window.removeEventListener("auth-change", handleStorage);
+      window.removeEventListener(PRIMARY_AUTH_EVENT, handleStorage);
+      window.removeEventListener(ADMIN_AUTH_EVENT, handleStorage);
     };
   }, [router, automaticRedirect]);
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    window.dispatchEvent(new Event("auth-change"));
+    clearPrimarySession(false);
+    clearAdminSession(false);
+    window.dispatchEvent(new Event(PRIMARY_AUTH_EVENT));
+    window.dispatchEvent(new Event(ADMIN_AUTH_EVENT));
     router.replace("/login");
   };
 

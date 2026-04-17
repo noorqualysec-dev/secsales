@@ -35,6 +35,7 @@ import Link from "next/link";
 import { useState, useMemo } from "react";
 import { useAuth } from "@/app/hooks/useAuth";
 import type { TaskStatus } from "@/app/types";
+import { canViewAdminDashboardModules } from "@/app/utils/permissions";
 
 const getMeetingTitle = (meeting: any) => meeting.subject || meeting.title || "Untitled Meeting";
 const getMeetingStart = (meeting: any) => meeting.startTime ?? meeting.from ?? 0;
@@ -155,7 +156,7 @@ function MeetingModal({ leads, initial, onSave, onClose, isSaving }: {
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin';
+  const canViewAdminModules = canViewAdminDashboardModules(user?.role);
   const [dateFilter, setDateFilter] = useState<"Today" | "Last Month" | "All Time" | "Custom">("Today");
   const [customRange, setCustomRange] = useState<{ start: string; end: string }>({ start: "", end: "" });
   const [modal, setModal] = useState<{ type: "task" | "meeting" | null; initial?: any } | null>(null);
@@ -722,7 +723,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Admin Leaderboard AB Testing View (Worthy check) */}
-      {isAdmin && (
+      {canViewAdminModules && (
         <div className="bg-slate-900 rounded-[2.5rem] p-10 text-white shadow-2xl relative overflow-hidden group">
            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[100px] rounded-full -mr-20 -mt-20 group-hover:bg-indigo-500/20 transition-all duration-700" />
            <div className="relative z-10">

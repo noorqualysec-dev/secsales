@@ -2,11 +2,18 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import axios from "axios";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
 import { api } from "@/app/services/api";
 import { Button } from "@/app/components/ui/button";
 import { Input } from "@/app/components/ui/input";
+import { canAccessAdminPortal } from "@/app/utils/permissions";
+import {
+  clearAdminSession,
+  persistAdminSession,
+  persistPrimarySession,
+} from "@/app/utils/session";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -23,18 +30,30 @@ export default function LoginPage() {
       const { token, ...userData } = data?.data ?? {};
       const user = userData.user || userData;
       
-      if (token) localStorage.setItem("token", token);
-      if (user) localStorage.setItem("user", JSON.stringify(user));
-      window.dispatchEvent(new Event("auth-change"));
+      if (token && user) {
+        persistPrimarySession(token, user, false);
 
-      if (user?.role === "admin") {
+        if (canAccessAdminPortal(user.role)) {
+          persistAdminSession(token, user, false);
+        } else {
+          clearAdminSession(false);
+        }
+
+        window.dispatchEvent(new Event("auth-change"));
+        window.dispatchEvent(new Event("admin-auth-change"));
+      }
+
+      if (canAccessAdminPortal(user?.role)) {
         router.push("/admin/dashboard");
       } else {
         router.push("/dashboard");
       }
     },
-    onError: (error: any) => {
-      alert(error?.response?.data?.message || "Login failed. Please verify credentials.");
+    onError: (error: unknown) => {
+      const message = axios.isAxiosError(error)
+        ? error.response?.data?.message
+        : undefined;
+      alert(message || "Login failed. Please verify credentials.");
     }
   });
 

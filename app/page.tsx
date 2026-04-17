@@ -2,13 +2,22 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { canAccessAdminPortal } from "@/app/utils/permissions";
+import { readStoredUser } from "@/app/utils/session";
 
 export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    router.replace(token ? "/dashboard" : "/login");
+    const user = readStoredUser(localStorage.getItem("user"));
+
+    if (!token) {
+      router.replace("/login");
+      return;
+    }
+
+    router.replace(canAccessAdminPortal(user?.role) ? "/admin/dashboard" : "/dashboard");
   }, [router]);
 
   return (

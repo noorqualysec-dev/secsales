@@ -6,11 +6,13 @@ import { AdminSidebar } from "@/app/components/admin/AdminSidebar";
 import { AdminHeader } from "@/app/components/admin/AdminHeader";
 import { useAdminAuth } from "@/app/hooks/useAdminAuth";
 import { ShieldAlert } from "lucide-react";
+import { canAccessAdminPortal } from "@/app/utils/permissions";
 
 const adminPageTitles: Record<string, string> = {
   "/admin/dashboard": "Executive Overview",
   "/admin/analytics": "Analytics",
   "/admin/tasks": "Task Management",
+  "/admin/kanban": "Lead Kanban",
   "/admin/users": "User Management",
   "/admin/leads": "System-wide Leads",
   "/admin/companies": "Company Accounts",
@@ -25,7 +27,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
-    if (!loading && (!user || user.role !== "admin")) {
+    if (!loading && (!user || !canAccessAdminPortal(user.role))) {
       if (pathname !== "/admin") {
         router.push("/admin");
       }
@@ -45,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  if (user && user.role !== "admin") {
+  if (user && !canAccessAdminPortal(user.role)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-950 p-6 text-center">
         <div className="w-16 h-16 bg-red-500/10 border border-red-500/20 rounded-2xl flex items-center justify-center mb-6">
@@ -53,7 +55,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
         <h2 className="text-2xl font-extrabold text-white tracking-tight mb-2">Restricted Area</h2>
         <p className="text-slate-400 text-sm max-w-sm mx-auto mb-8 font-medium">
-          You are currently signed in as a <span className="text-indigo-400 font-bold">{user.role}</span>. You do not have the required clearance to access the administrator portal.
+          You are currently signed in as a <span className="text-indigo-400 font-bold">{user.role}</span>. You do not have the required clearance to access the admin and manager workspace.
         </p>
         <button
           onClick={() => {

@@ -1,16 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import axios from "axios";
 import { useRouter } from "next/navigation";
-import { Zap, ArrowRight, UserPlus, LogIn } from "lucide-react";
+import { Zap, UserPlus, LogIn } from "lucide-react";
 import { Button } from "@/app/components/ui/button";
 import { api } from "@/app/services/api";
-
 import { useAdminAuth } from "@/app/hooks/useAdminAuth";
+import { canAccessAdminPortal } from "@/app/utils/permissions";
+import {
+  clearAdminSession,
+  clearPrimarySession,
+  persistAdminSession,
+  persistPrimarySession,
+} from "@/app/utils/session";
 
 export default function AdminAuthPage() {
   const router = useRouter();
-  const { checkAuth } = useAdminAuth(false);
+  useAdminAuth(false);
   const [isAdminLogin, setIsAdminLogin] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -35,13 +42,27 @@ export default function AdminAuthPage() {
       const res = await api.post(endpoint, payload);
       
       if (res.data.success) {
-        localStorage.setItem("admin_token", res.data.data.token);
-        localStorage.setItem("admin_user", JSON.stringify(res.data.data.user || res.data.data));
+        const token = res.data.data.token;
+        const user = res.data.data.user || res.data.data;
+
+        if (!token || !user || !canAccessAdminPortal(user.role)) {
+          clearAdminSession(false);
+          clearPrimarySession(false);
+          setError("This portal is available only for admin and manager accounts.");
+          return;
+        }
+
+        persistAdminSession(token, user, false);
+        persistPrimarySession(token, user, false);
         window.dispatchEvent(new Event("admin-auth-change"));
+        window.dispatchEvent(new Event("auth-change"));
         router.push("/admin/dashboard");
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      const message = axios.isAxiosError(err)
+        ? err.response?.data?.message
+        : undefined;
+      setError(message || "Something went wrong. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -60,7 +81,7 @@ export default function AdminAuthPage() {
           </div>
           <h1 className="text-2xl font-bold text-white tracking-tight">Admin Portal</h1>
           <p className="text-slate-400 mt-2 text-sm">
-            {isAdminLogin ? "Welcome back, please sign in." : "Create a new administrator account."}
+            {isAdminLogin ? "Admins and managers can sign in here." : "Create a new administrator account."}
           </p>
         </div>
 
