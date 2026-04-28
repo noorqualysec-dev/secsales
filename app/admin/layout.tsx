@@ -70,7 +70,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
-  const pageTitle = adminPageTitles[pathname] ?? "Admin Panel";
+  const pageTitle = pathname.startsWith("/admin/team/")
+    ? "Sales Rep Performance Profile"
+    : adminPageTitles[pathname] ?? "Admin Panel";
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-inter antialiased">
