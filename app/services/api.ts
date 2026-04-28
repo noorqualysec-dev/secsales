@@ -4,14 +4,20 @@ import axios, { InternalAxiosRequestConfig } from "axios";
 // This means the browser stays on localhost:3000, so CORS never applies!
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL + "/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
 });
 
 // Interceptor to automatically attach the user's JWT Token to all API requests
 api.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // Let the browser set multipart boundary automatically for FormData uploads.
+    if (typeof FormData !== "undefined" && config.data instanceof FormData && config.headers) {
+      if (typeof (config.headers as any).set === "function") {
+        (config.headers as any).set("Content-Type", undefined);
+      } else {
+        delete (config.headers as Record<string, any>)["Content-Type"];
+      }
+    }
+
     if (typeof window !== "undefined") {
       let tokenValue = null;
 

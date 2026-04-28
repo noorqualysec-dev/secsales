@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Bell, Menu, LogOut, CheckCheck } from "lucide-react";
 import { useNotifications, useMarkAllNotificationsAsRead, useMarkNotificationAsRead } from "@/app/hooks/useNotifications";
 import type { Notification, User } from "@/app/types";
+import { canUseSalesWorkspace } from "@/app/utils/permissions";
 
 interface HeaderProps {
   user: User | null;
@@ -17,7 +18,7 @@ export function Header({ user, pageTitle, onMenuClick, onLogout }: HeaderProps) 
   const router = useRouter();
   const dropdownRef = useRef<HTMLDivElement | null>(null);
   const [isOpen, setIsOpen] = useState(false);
-  const shouldShowNotifications = user?.role === "sales_rep";
+  const shouldShowNotifications = canUseSalesWorkspace(user?.role);
   const { data, isLoading } = useNotifications({
     enabled: shouldShowNotifications,
     limit: 8,

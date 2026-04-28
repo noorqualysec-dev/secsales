@@ -59,10 +59,16 @@ export function useDeleteLead() {
 export function useBulkImportLeads() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (leads: any[]) => api.post("/leads/bulk", { leads }),
+    mutationFn: (file: File) => {
+      const formData = new FormData();
+      formData.append("file", file, file.name);
+      return api.post("/lead-import/excel", formData);
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: LEADS_KEY });
       qc.invalidateQueries({ queryKey: COMPANIES_KEY });
+      qc.refetchQueries({ queryKey: LEADS_KEY, type: "active" });
+      qc.refetchQueries({ queryKey: COMPANIES_KEY, type: "active" });
     },
   });
 }

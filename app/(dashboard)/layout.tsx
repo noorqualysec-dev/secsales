@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/app/components/layout/Sidebar";
 import { Header } from "@/app/components/layout/Header";
 import { useAuth } from "@/app/hooks/useAuth";
-import { canAccessAdminPortal } from "@/app/utils/permissions";
+import { shouldForceAdminWorkspace } from "@/app/utils/permissions";
 
 const pageTitles: Record<string, string> = {
   "/dashboard": "Dashboard",
@@ -50,17 +50,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const shouldUseAdminPortal = canAccessAdminPortal(user?.role);
+  const shouldRedirectToAdminWorkspace = shouldForceAdminWorkspace(user?.role);
   const elevatedRedirectPath = useMemo(
     () => resolveElevatedRoute(pathname),
     [pathname]
   );
 
   useEffect(() => {
-    if (!loading && shouldUseAdminPortal) {
+    if (!loading && shouldRedirectToAdminWorkspace) {
       router.replace(elevatedRedirectPath);
     }
-  }, [elevatedRedirectPath, loading, router, shouldUseAdminPortal]);
+  }, [elevatedRedirectPath, loading, router, shouldRedirectToAdminWorkspace]);
 
   if (loading) {
     return (
@@ -73,7 +73,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     );
   }
 
-  if (shouldUseAdminPortal) {
+  if (shouldRedirectToAdminWorkspace) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <div className="flex flex-col items-center gap-3">

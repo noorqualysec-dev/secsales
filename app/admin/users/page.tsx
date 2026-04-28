@@ -15,8 +15,10 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import type { User } from "@/app/types";
+import { useAdminAuth } from "@/app/hooks/useAdminAuth";
 
 export default function AdminUsersPage() {
+  const { user: currentAdminUser } = useAdminAuth(false);
   const { data, isLoading } = useAdminUsers();
   const updateRole = useUpdateUserRole();
   const toggleStatus = useToggleUserStatus();
@@ -97,7 +99,9 @@ export default function AdminUsersPage() {
                         >
                           <option value="admin">Administrator</option>
                           <option value="sales_rep">Sales Rep</option>
-                          <option value="manager">Lead Manager</option>
+                          {currentAdminUser?.role === "admin" && (
+                            <option value="manager">Lead Manager</option>
+                          )}
                         </select>
                         <ChevronDown size={14} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-hover:text-indigo-600 transition" />
                       </div>

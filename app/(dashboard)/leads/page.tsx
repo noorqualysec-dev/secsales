@@ -141,11 +141,12 @@ function exportLeadsToCSV(leads: Lead[]) {
 const CSV_FIELD_MAP: Record<string, string> = {
   "first name": "firstName", "firstname": "firstName", "first_name": "firstName",
   "last name": "lastName", "lastname": "lastName", "last_name": "lastName",
+  "contact person": "contactPerson",
   "email": "email", "email address": "email", "email_address": "email",
   "phone": "phone", "phone number": "phone", "mobile": "phone",
   "company": "company", "company name": "company", "organization": "company",
   "designation": "designation", "title": "designation", "job title": "designation",
-  "industry": "industry", "industry sector": "industry",
+  "industry": "industry", "industry sector": "industry", "industry vertical": "industry", "industrial vertical": "industry",
   "country": "country",
   "region": "region",
   "employee strength": "employeeStrength", "employees": "employeeStrength", "employee_strength": "employeeStrength",
@@ -155,6 +156,17 @@ const CSV_FIELD_MAP: Record<string, string> = {
   "closing date": "closingDate", "closing_date": "closingDate",
   "remarks": "latestRemark", "notes": "latestRemark", "remark": "latestRemark", "latest remark": "latestRemark",
 };
+
+function splitContactPersonName(fullName: string): { firstName: string; lastName: string } {
+  const clean = String(fullName || "").trim();
+  if (!clean) return { firstName: "", lastName: "" };
+  const parts = clean.split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0] || "", lastName: "" };
+  return {
+    firstName: parts[0] || "",
+    lastName: parts.slice(1).join(" "),
+  };
+}
 
 function splitLegacyPhone(full: string): { phoneCountryCode: string; phone: string; country: string } {
   const t = full.trim();
@@ -771,16 +783,18 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
 
 function ImportModal({ onClose, onImport, isImporting, result }: {
   onClose: () => void;
-  onImport: (leads: any[]) => void;
+  onImport: (file: File) => void;
   isImporting: boolean;
   result: { imported: number; skipped: number } | null;
 }) {
   const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   const handleFile = (file: File) => {
-    if (!file.name.endsWith(".csv")) { alert("Please upload a .csv file"); return; }
+    if (!file.name.toLowerCase().endsWith(".csv")) { alert("Please upload a .csv file"); return; }
+    setSelectedFile(file);
     setFileName(file.name);
     Papa.parse(file, {
       header: true,
@@ -795,6 +809,16 @@ function ImportModal({ onClose, onImport, isImporting, result }: {
             else if (fieldName === "dealValue") lead[fieldName] = Number(val) || 0;
             else lead[fieldName] = val;
           });
+          const hasFirstName = String(lead.firstName ?? "").trim().length > 0;
+          const contactPerson = String(lead.contactPerson ?? "").trim();
+          if (!hasFirstName && contactPerson) {
+            const split = splitContactPersonName(contactPerson);
+            lead.firstName = split.firstName;
+            if (!String(lead.lastName ?? "").trim()) {
+              lead.lastName = split.lastName;
+            }
+          }
+          delete lead.contactPerson;
           return lead;
         });
         setParsedRows(mapped);
@@ -864,10 +888,10 @@ function ImportModal({ onClose, onImport, isImporting, result }: {
                 ) : (
                   <>
                     <p className="font-extrabold text-slate-500">Drop your CSV here or <span className="text-indigo-600">click to browse</span></p>
-                    <p className="text-xs text-slate-400 mt-1">Only .csv files accepted</p>
+                    <p className="text-xs text-slate-400 mt-1">CSV files only (Windows may display type as "Comma Separated Values")</p>
                   </>
                 )}
-                <input ref={fileRef} type="file" accept=".csv" className="hidden"
+                <input ref={fileRef} type="file" accept=".csv,text/csv" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); }} />
               </div>
 
@@ -957,8 +981,11 @@ function ImportModal({ onClose, onImport, isImporting, result }: {
               Cancel
             </button>
             <button
-              disabled={validRows.length === 0 || isImporting}
-              onClick={() => onImport(validRows)}
+              disabled={!selectedFile || validRows.length === 0 || isImporting}
+              onClick={() => {
+                if (!selectedFile) return;
+                onImport(selectedFile);
+              }}
               className="flex-1 px-8 py-4 rounded-2xl bg-indigo-600 text-white font-extrabold text-xs uppercase tracking-widest hover:bg-slate-800 transition active:scale-95 shadow-xl shadow-indigo-500/10 disabled:opacity-40"
             >
               {isImporting ? "Importing..." : `Import ${validRows.length} Lead${validRows.length !== 1 ? "s" : ""} →`}
@@ -1005,10 +1032,13 @@ export default function LeadsPage() {
     }
   };
 
-  const handleImport = (rows: any[]) => {
-    bulkImport.mutate(rows, {
+  const handleImport = (file: File) => {
+    bulkImport.mutate(file, {
       onSuccess: (res: any) => {
-        setImportModal({ open: true, result: res.data?.data ?? { imported: 0, skipped: 0 } });
+        const payload = res?.data ?? {};
+        const imported = Number(payload?.data?.imported ?? payload?.importedCount ?? 0);
+        const skipped = Number(payload?.data?.skipped ?? payload?.failedCount ?? 0);
+        setImportModal({ open: true, result: { imported, skipped } });
       },
     });
   };

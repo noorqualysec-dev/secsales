@@ -14,10 +14,13 @@ import {
   UserCircle,
   BarChart3,
   Building2,
+  Calendar,
 } from "lucide-react";
+import type { AppRole } from "@/app/utils/permissions";
 
 interface AdminSidebarProps {
   onClose?: () => void;
+  role?: AppRole | null;
 }
 
 const navItems = [
@@ -32,8 +35,9 @@ const navItems = [
   { name: "Team",          href: "/admin/team",       icon: Users2 },
 ];
 
-export function AdminSidebar({ onClose }: AdminSidebarProps) {
+export function AdminSidebar({ onClose, role }: AdminSidebarProps) {
   const pathname = usePathname();
+  const showManagerSalesTools = role === "manager";
 
   return (
     <aside className="w-68 h-full bg-slate-900 text-white flex flex-col shrink-0 border-r border-slate-800 shadow-2xl">
@@ -75,6 +79,56 @@ export function AdminSidebar({ onClose }: AdminSidebarProps) {
             </Link>
           );
         })}
+
+        {showManagerSalesTools && (
+          <>
+            <p className="px-4 pt-4 pb-1 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+              Sales Workspace
+            </p>
+            <Link
+              href="/leads"
+              onClick={onClose}
+              className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 group ${
+                pathname === "/leads" || pathname.startsWith("/leads/")
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                  : "text-slate-400 hover:bg-slate-800/80 hover:text-white"
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <Users className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${pathname === "/leads" || pathname.startsWith("/leads/") ? "text-white" : "text-slate-500"}`} />
+                <span className="font-semibold text-sm tracking-tight">My Leads</span>
+              </div>
+            </Link>
+            <Link
+              href="/proposals"
+              onClick={onClose}
+              className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 group ${
+                pathname === "/proposals" || pathname.startsWith("/proposals/")
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                  : "text-slate-400 hover:bg-slate-800/80 hover:text-white"
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <FileCheck className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${pathname === "/proposals" || pathname.startsWith("/proposals/") ? "text-white" : "text-slate-500"}`} />
+                <span className="font-semibold text-sm tracking-tight">My Proposals</span>
+              </div>
+            </Link>
+            <Link
+              href="/dashboard/integrations/google"
+              onClick={onClose}
+              className={`flex items-center justify-between px-4 py-3.5 rounded-xl transition-all duration-300 group ${
+                pathname === "/dashboard/integrations/google" || pathname.startsWith("/dashboard/integrations/google/")
+                  ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/20"
+                  : "text-slate-400 hover:bg-slate-800/80 hover:text-white"
+              }`}
+            >
+              <div className="flex items-center gap-3.5">
+                <Calendar className={`w-5 h-5 transition-transform duration-300 group-hover:scale-110 ${pathname === "/dashboard/integrations/google" || pathname.startsWith("/dashboard/integrations/google/") ? "text-white" : "text-slate-500"}`} />
+                <span className="font-semibold text-sm tracking-tight">Google Calendar</span>
+              </div>
+            </Link>
+          </>
+        )}
       </nav>
 
       <div className="p-4 border-t border-slate-800 bg-slate-950/40">

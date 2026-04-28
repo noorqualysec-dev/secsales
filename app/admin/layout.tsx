@@ -85,7 +85,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         className={`fixed inset-y-0 left-0 z-40 transform transition-all duration-300 ease-in-out lg:relative lg:translate-x-0 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"
           }`}
       >
-        <AdminSidebar onClose={() => setIsSidebarOpen(false)} />
+        <AdminSidebar role={user?.role} onClose={() => setIsSidebarOpen(false)} />
       </aside>
 
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden relative">
