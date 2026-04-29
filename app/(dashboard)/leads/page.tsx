@@ -104,6 +104,17 @@ function getLeadStage(lead: Lead): LeadStatus {
   return lead.lostAtStatus || lead.wonAtStatus || "Lead Captured";
 }
 
+function formatCreatedDate(createdAt?: string): string {
+  if (!createdAt) return "N/A";
+  const parsed = new Date(createdAt);
+  if (Number.isNaN(parsed.getTime())) return "N/A";
+  return parsed.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+}
+
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
 function exportLeadsToCSV(leads: Lead[]) {
@@ -1124,13 +1135,14 @@ export default function LeadsPage() {
             </div>
           ) : (
             <div className="overflow-x-auto custom-scrollbar">
-              <table className="w-full text-left border-collapse min-w-[1000px]">
+              <table className="w-full text-left border-collapse min-w-[1160px]">
                 <thead>
                   <tr className="bg-slate-50/50 border-b border-slate-50 text-slate-400 text-[10px] font-extrabold uppercase tracking-[0.25em]">
                     <th className="px-10 py-6">Prospect Identity</th>
                     <th className="px-10 py-6 hidden md:table-cell">Affiliation</th>
                     <th className="px-10 py-6">Pipeline State</th>
                     <th className="px-10 py-6 hidden lg:table-cell">Archived Note</th>
+                    <th className="px-10 py-6">Date</th>
                     <th className="px-10 py-6 text-right">Strategic Actions</th>
                   </tr>
                 </thead>
@@ -1194,6 +1206,11 @@ export default function LeadsPage() {
                         <p className="text-xs font-medium text-slate-500 italic truncate" title={notePreview}>
                           {notePreview ? `"${notePreview}"` : "No remarks recorded."}
                         </p>
+                      </td>
+                      <td className="px-10 py-6">
+                        <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                          {formatCreatedDate(lead.createdAt)}
+                        </span>
                       </td>
                       <td className="px-10 py-6">
                         <div className="flex items-center gap-3 justify-end opacity-0 group-hover:opacity-100 transition-opacity duration-300">

@@ -49,11 +49,22 @@ function getProposalStatusBadgeColor(status: ProposalStatus): string {
   return "bg-slate-100 text-slate-700";
 }
 
-function getLeadName(leadRef: Lead | string, leadsMap: Map<string, Lead>): string {
-  if (typeof leadRef === "object") return `${leadRef.firstName} ${leadRef.lastName}`;
-  const lead = leadsMap.get(leadRef);
-  if (!lead) return "Unknown Lead";
-  return `${lead.firstName} ${lead.lastName}`;
+function getLeadName(
+  leadRef: Lead | string | null | undefined,
+  leadsMap: Map<string, Lead>
+): string {
+  if (!leadRef) return "Unknown Lead";
+
+  if (typeof leadRef === "string") {
+    const lead = leadsMap.get(leadRef);
+    if (!lead) return "Unknown Lead";
+    return `${lead.firstName} ${lead.lastName}`;
+  }
+
+  const firstName = leadRef.firstName?.trim?.() || "";
+  const lastName = leadRef.lastName?.trim?.() || "";
+  const fullName = `${firstName} ${lastName}`.trim();
+  return fullName || "Unknown Lead";
 }
 
 export default function SalesRepProfilePage() {
@@ -149,7 +160,7 @@ export default function SalesRepProfilePage() {
       return (
         leadName.includes(q) ||
         proposal.status.toLowerCase().includes(q) ||
-        String(proposal.value).includes(q)
+        String(proposal.value ?? "").includes(q)
       );
     });
   }, [leadsMap, proposalFilter, searchQuery, userProposals]);
@@ -509,7 +520,7 @@ export default function SalesRepProfilePage() {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-slate-900">
-                      INR {proposal.value.toLocaleString("en-IN")}
+                      INR {Number(proposal.value || 0).toLocaleString("en-IN")}
                     </td>
                     <td className="px-6 py-4 text-right text-sm text-slate-600 font-medium">
                       {new Date(proposal.createdAt).toLocaleDateString("en-IN")}

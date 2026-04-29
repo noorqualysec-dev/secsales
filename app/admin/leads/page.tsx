@@ -119,6 +119,17 @@ export default function AdminLeadsPage() {
     );
   };
 
+  const formatCreatedDate = (createdAt?: string) => {
+    if (!createdAt) return "N/A";
+    const parsed = new Date(createdAt);
+    if (Number.isNaN(parsed.getTime())) return "N/A";
+    return parsed.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+
   if (leadsLoading) {
     return (
       <div className="space-y-4 animate-pulse">
@@ -192,13 +203,14 @@ export default function AdminLeadsPage() {
 
       <div className="bg-white border border-slate-200 rounded-3xl shadow-lg overflow-hidden transition-all duration-300 hover:shadow-xl group/container">
         <div className="overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left border-collapse min-w-[1100px]">
+          <table className="w-full text-left border-collapse min-w-[1260px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-100 text-slate-500 text-[10px] font-extrabold uppercase tracking-[0.2em]">
                 <th className="px-8 py-5">Identity (Source Rep)</th>
                 <th className="px-8 py-5">Affiliation</th>
                 <th className="px-8 py-5">Pipeline State</th>
                 <th className="px-8 py-5">Current Target</th>
+                <th className="px-8 py-5">Date</th>
                 <th className="px-8 py-5 text-right">Audit & Controls</th>
               </tr>
             </thead>
@@ -231,6 +243,11 @@ export default function AdminLeadsPage() {
                         {typeof lead.assignedTo === 'object' && lead.assignedTo ? lead.assignedTo.name : 'Unassigned Pool'}
                       </span>
                     </div>
+                  </td>
+                  <td className="px-8 py-5">
+                    <span className="text-xs font-bold text-slate-600 uppercase tracking-tighter">
+                      {formatCreatedDate(lead.createdAt)}
+                    </span>
                   </td>
                   <td className="px-8 py-5 text-right">
                     <div className="flex items-center gap-3 justify-end">
