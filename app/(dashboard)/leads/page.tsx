@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useBulkImportLeads } from "@/app/hooks/useLeads";
 import type { LeadPayload } from "@/app/hooks/useLeads";
 import type { Lead, LeadSource, LeadContact, LeadOutcome, LeadRegion } from "@/app/types";
@@ -11,6 +11,7 @@ import {
   Briefcase, Users, Building2, Upload, Download, AlertCircle, UserPlus2, Sparkles
 } from "lucide-react";
 import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
 
@@ -90,6 +91,51 @@ function formatCreatedDate(createdAt?: string): string {
     month: "short",
     year: "numeric",
   });
+}
+
+const LEADS_PAGE_SIZE = 10;
+type LeadSortOption = "created_desc" | "created_asc" | "name_asc" | "name_desc";
+const VALID_LEAD_SORT_OPTIONS: LeadSortOption[] = ["created_desc", "created_asc", "name_asc", "name_desc"];
+
+function parseLeadDate(value: string | null): string {
+  if (!value) return "";
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : "";
+}
+
+function parseLeadMonth(value: string | null): string {
+  if (!value) return "";
+  return /^\d{4}-\d{2}$/.test(value) ? value : "";
+}
+
+function leadCreatedAtTimestamp(lead: Lead): number {
+  const ts = Date.parse(lead.createdAt);
+  return Number.isNaN(ts) ? 0 : ts;
+}
+
+function getLeadStatusForFilter(lead: Lead): string {
+  const outcome = getLeadOutcome(lead);
+  if (outcome === "won") return "Won";
+  if (outcome === "lost") return "Lost";
+  return getLeadStage(lead);
+}
+
+function matchesLeadDateFilter(lead: Lead, dateFilter: string): boolean {
+  if (!dateFilter) return true;
+  const parsed = new Date(lead.createdAt);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const yyyy = parsed.getFullYear();
+  const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+  const dd = String(parsed.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}` === dateFilter;
+}
+
+function matchesLeadMonthFilter(lead: Lead, monthFilter: string): boolean {
+  if (!monthFilter) return true;
+  const parsed = new Date(lead.createdAt);
+  if (Number.isNaN(parsed.getTime())) return false;
+  const yyyy = parsed.getFullYear();
+  const mm = String(parsed.getMonth() + 1).padStart(2, "0");
+  return `${yyyy}-${mm}` === monthFilter;
 }
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
@@ -988,6 +1034,9 @@ function ImportModal({ onClose, onImport, isImporting, result }: {
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function LeadsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data, isLoading, error } = useLeads();
   const createLead = useCreateLead();
   const updateLead = useUpdateLead();
@@ -1000,7 +1049,69 @@ export default function LeadsPage() {
     result: { imported: number; skipped: number } | null;
   }>({ open: false, result: null });
 
-  const leads = data?.data ?? [];
+  const leads = useMemo(() => data?.data ?? [], [data?.data]);
+  const nameFilter = searchParams.get("name")?.trim() ?? "";
+  const statusFilter = searchParams.get("status")?.trim() ?? "";
+  const dateFilter = parseLeadDate(searchParams.get("date"));
+  const monthFilter = parseLeadMonth(searchParams.get("month"));
+  const requestedSort = searchParams.get("sort");
+  const sortOption: LeadSortOption = VALID_LEAD_SORT_OPTIONS.includes(requestedSort as LeadSortOption)
+    ? (requestedSort as LeadSortOption)
+    : "created_desc";
+  const requestedPage = Number(searchParams.get("page") ?? "1");
+  const currentPage = Number.isFinite(requestedPage) && requestedPage > 0 ? Math.floor(requestedPage) : 1;
+
+  const updateQueryParams = (updates: Record<string, string | null>, options: { resetPage?: boolean } = {}) => {
+    const params = new URLSearchParams(searchParams.toString());
+    for (const [key, value] of Object.entries(updates)) {
+      if (value && value.trim()) {
+        params.set(key, value);
+      } else {
+        params.delete(key);
+      }
+    }
+    if (options.resetPage) {
+      params.delete("page");
+    }
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  };
+
+  const filteredLeads = useMemo(() => {
+    const normalizedName = nameFilter.toLowerCase();
+    const working = leads
+      .filter((lead) => {
+        if (!normalizedName) return true;
+        const fullName = `${lead.firstName} ${lead.lastName}`.toLowerCase();
+        const email = (lead.email ?? "").toLowerCase();
+        const company = (lead.company ?? "").toLowerCase();
+        return fullName.includes(normalizedName) || email.includes(normalizedName) || company.includes(normalizedName);
+      })
+      .filter((lead) => (statusFilter ? getLeadStatusForFilter(lead) === statusFilter : true))
+      .filter((lead) => matchesLeadDateFilter(lead, dateFilter))
+      .filter((lead) => matchesLeadMonthFilter(lead, monthFilter));
+
+    return [...working].sort((a, b) => {
+      if (sortOption === "created_asc") {
+        return leadCreatedAtTimestamp(a) - leadCreatedAtTimestamp(b);
+      }
+      if (sortOption === "name_asc") {
+        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+      }
+      if (sortOption === "name_desc") {
+        return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
+      }
+      return leadCreatedAtTimestamp(b) - leadCreatedAtTimestamp(a);
+    });
+  }, [dateFilter, leads, monthFilter, nameFilter, sortOption, statusFilter]);
+
+  const totalPages = Math.max(1, Math.ceil(filteredLeads.length / LEADS_PAGE_SIZE));
+  const safePage = Math.min(currentPage, totalPages);
+  const paginatedLeads = useMemo(() => {
+    const start = (safePage - 1) * LEADS_PAGE_SIZE;
+    return filteredLeads.slice(start, start + LEADS_PAGE_SIZE);
+  }, [filteredLeads, safePage]);
+  const hasActiveFilters = Boolean(nameFilter || statusFilter || dateFilter || monthFilter || requestedSort);
 
   const handleDelete = (id: string) => {
     if (window.confirm("Are you sure you want to permanently delete this lead?")) {
@@ -1068,7 +1179,7 @@ export default function LeadsPage() {
               <Plus size={16} /> Internal Lead Management
             </h2>
             <p className="text-xl font-extrabold text-slate-900 tracking-tight">
-              Active Pipeline Intelligence <span className="text-indigo-600 ml-2">[{leads.length}]</span>
+              Active Pipeline Intelligence <span className="text-indigo-600 ml-2">[{filteredLeads.length}]</span>
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -1094,6 +1205,85 @@ export default function LeadsPage() {
           </div>
         </div>
 
+        <div className="bg-white border border-slate-200 rounded-3xl px-6 py-5 shadow-sm">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-3">
+            <div className="xl:col-span-2">
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Name Search</label>
+              <input
+                value={nameFilter}
+                onChange={(e) => updateQueryParams({ name: e.target.value || null }, { resetPage: true })}
+                placeholder="Search by name, email, or company"
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Date</label>
+              <input
+                type="date"
+                value={dateFilter}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  updateQueryParams({ date: value || null, month: value ? null : monthFilter || null }, { resetPage: true });
+                }}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Month</label>
+              <input
+                type="month"
+                value={monthFilter}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  updateQueryParams({ month: value || null, date: value ? null : dateFilter || null }, { resetPage: true });
+                }}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400"
+              />
+            </div>
+            <div>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => updateQueryParams({ status: e.target.value || null }, { resetPage: true })}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400"
+              >
+                <option value="">All Statuses</option>
+                {PIPELINE_LEAD_STATUSES.map((status) => (
+                  <option key={status} value={status}>{status}</option>
+                ))}
+                <option value="Won">Won</option>
+                <option value="Lost">Lost</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Sort</label>
+              <select
+                value={sortOption}
+                onChange={(e) => updateQueryParams({ sort: e.target.value === "created_desc" ? null : e.target.value }, { resetPage: true })}
+                className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400"
+              >
+                <option value="created_desc">Newest First</option>
+                <option value="created_asc">Oldest First</option>
+                <option value="name_asc">Name (A-Z)</option>
+                <option value="name_desc">Name (Z-A)</option>
+              </select>
+            </div>
+          </div>
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-xs font-bold text-slate-500">
+              Showing <span className="text-slate-800">{filteredLeads.length}</span> of <span className="text-slate-800">{leads.length}</span> leads
+            </p>
+            {hasActiveFilters && (
+              <button
+                onClick={() => updateQueryParams({ name: null, status: null, date: null, month: null, sort: null, page: null })}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-xs font-extrabold uppercase tracking-wider text-slate-600 hover:text-indigo-600 hover:border-indigo-300 transition"
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Leads Table */}
         <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-lg overflow-hidden transition-shadow duration-500 hover:shadow-2xl group/monitor">
           {isLoading ? (
@@ -1102,15 +1292,20 @@ export default function LeadsPage() {
                 <div key={i} className="h-20 bg-slate-50 rounded-4xl animate-pulse border border-slate-100" />
               ))}
             </div>
-          ) : leads.length === 0 ? (
+          ) : filteredLeads.length === 0 ? (
             <div className="py-24 text-center">
               <div className="w-20 h-20 bg-slate-50 rounded-4xl flex items-center justify-center mx-auto mb-6 text-slate-300">
                 <Users size={40} />
               </div>
-              <p className="text-sm font-extrabold text-slate-400 uppercase tracking-widest">No Intelligence Data Detected</p>
-              <p className="text-sm text-slate-400 mt-2">Initialize your database by adding your first lead entry.</p>
+              <p className="text-sm font-extrabold text-slate-400 uppercase tracking-widest">
+                {leads.length === 0 ? "No Intelligence Data Detected" : "No Leads Match Current Filters"}
+              </p>
+              <p className="text-sm text-slate-400 mt-2">
+                {leads.length === 0 ? "Initialize your database by adding your first lead entry." : "Try changing the selected name/date/month/status filters."}
+              </p>
             </div>
           ) : (
+            <>
             <div className="overflow-x-auto custom-scrollbar">
               <table className="w-full text-left border-collapse min-w-[1160px]">
                 <thead>
@@ -1124,7 +1319,7 @@ export default function LeadsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {leads.map((lead: Lead) => {
+                  {paginatedLeads.map((lead: Lead) => {
                     const outcome = getLeadOutcome(lead);
                     const stage = getLeadStage(lead);
                     const badgeKey = outcome === "won" ? "Won" : outcome === "lost" ? "Lost" : stage;
@@ -1218,6 +1413,43 @@ export default function LeadsPage() {
                 </tbody>
               </table>
             </div>
+            {filteredLeads.length > LEADS_PAGE_SIZE && (
+              <div className="border-t border-slate-100 px-6 py-4 flex flex-col md:flex-row items-center justify-between gap-3">
+                <p className="text-xs font-bold text-slate-500">
+                  Page <span className="text-slate-900">{safePage}</span> of <span className="text-slate-900">{totalPages}</span>
+                </p>
+                <div className="flex items-center gap-2 flex-wrap justify-center">
+                  <button
+                    onClick={() => updateQueryParams({ page: safePage <= 2 ? null : String(safePage - 1) })}
+                    disabled={safePage === 1}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-600 disabled:opacity-40 hover:border-indigo-300 hover:text-indigo-600 transition"
+                  >
+                    Prev
+                  </button>
+                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => updateQueryParams({ page: pageNum === 1 ? null : String(pageNum) })}
+                      className={`w-8 h-8 rounded-xl text-xs font-extrabold border transition ${
+                        pageNum === safePage
+                          ? "bg-indigo-600 text-white border-indigo-600"
+                          : "bg-white text-slate-600 border-slate-200 hover:border-indigo-300 hover:text-indigo-600"
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => updateQueryParams({ page: String(Math.min(totalPages, safePage + 1)) })}
+                    disabled={safePage === totalPages}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 text-xs font-extrabold text-slate-600 disabled:opacity-40 hover:border-indigo-300 hover:text-indigo-600 transition"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
       </div>
