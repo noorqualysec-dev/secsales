@@ -3,7 +3,8 @@
 import { useState, useRef } from "react";
 import { useLeads, useCreateLead, useUpdateLead, useDeleteLead, useBulkImportLeads } from "@/app/hooks/useLeads";
 import type { LeadPayload } from "@/app/hooks/useLeads";
-import type { Lead, LeadStatus, LeadSource, LeadContact, LeadOutcome, LeadRegion } from "@/app/types";
+import type { Lead, LeadSource, LeadContact, LeadOutcome, LeadRegion } from "@/app/types";
+import { PIPELINE_LEAD_STATUSES, getLeadOutcome, getLeadStage, type PipelineLeadStatus } from "@/app/lib/leadStatus";
 import Papa from "papaparse";
 import {
   Plus, Pencil, Trash2, X, CheckCircle2, Eye,
@@ -12,12 +13,6 @@ import {
 import Link from "next/link";
 
 // ── Configuration ─────────────────────────────────────────────────────────────
-
-const LEAD_STATUSES: LeadStatus[] = [
-  "Lead Captured", "Discovery Call Scheduled", "Requirement Gathering",
-  "Pre-Assessment Form Sent", "Proposal Preparation", "Proposal Sent",
-  "Negotiation",
-];
 
 const LEAD_SOURCES: LeadSource[] = [
   "website", "email_marketing", "linkedin", "referral",
@@ -80,29 +75,11 @@ const statusColors: Record<string, string> = {
   "Lead Captured": "bg-blue-50 text-blue-600 border-blue-100",
   "Discovery Call Scheduled": "bg-purple-50 text-purple-600 border-purple-100",
   "Requirement Gathering": "bg-yellow-50 text-yellow-600 border-yellow-100",
-  "Pre-Assessment Form Sent": "bg-orange-50 text-orange-600 border-orange-100",
-  "Proposal Preparation": "bg-indigo-50 text-indigo-600 border-indigo-100",
   "Proposal Sent": "bg-cyan-50 text-cyan-600 border-cyan-100",
   "Negotiation": "bg-amber-50 text-amber-600 border-amber-100",
   "Won": "bg-emerald-50 text-emerald-600 border-emerald-100",
   "Lost": "bg-rose-50 text-rose-600 border-rose-100",
 };
-
-function getLeadOutcome(lead: Lead): LeadOutcome {
-  if (lead.outcome === "won" || lead.outcome === "lost" || lead.outcome === "cancelled") {
-    return lead.outcome;
-  }
-  if (lead.status === "Won") return "won";
-  if (lead.status === "Lost") return "lost";
-  return "open";
-}
-
-function getLeadStage(lead: Lead): LeadStatus {
-  if (lead.status !== "Won" && lead.status !== "Lost") {
-    return lead.status;
-  }
-  return lead.lostAtStatus || lead.wonAtStatus || "Lead Captured";
-}
 
 function formatCreatedDate(createdAt?: string): string {
   if (!createdAt) return "N/A";
@@ -204,7 +181,7 @@ const emptyForm = {
   region: "" as LeadRegion | "",
   industrySelect: "", industryOther: "",
   designation: "", employeeStrength: "",
-  status: "Lead Captured" as LeadStatus,
+  status: "Lead Captured" as PipelineLeadStatus,
   outcome: "open" as LeadOutcome,
   lostReason: "",
   source: "website" as LeadSource,
@@ -706,7 +683,7 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
               <div>
                 <label className={labelCls}>Pipeline State</label>
                 <select className={inputCls} value={form.status} onChange={set("status")}>
-                  {LEAD_STATUSES.map(s => <option key={s}>{s}</option>)}
+                  {PIPELINE_LEAD_STATUSES.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
               <div>

@@ -16,7 +16,7 @@ import {
   useAdminProposals,
   useAdminUsers,
 } from "@/app/hooks/useAdmin";
-import type { Lead, LeadStatus, Proposal, User } from "@/app/types";
+import type { Lead, LeadStatusBucket, Proposal, User } from "@/app/types";
 import {
   computeAllUserStats,
   createEmptyStats,
@@ -27,7 +27,7 @@ import {
 
 type RoleFilter = "all" | User["role"];
 type ActiveFilter = "all" | "active" | "inactive";
-type StageFilter = "all" | LeadStatus;
+type StageFilter = "all" | LeadStatusBucket;
 
 const EMPTY_USERS: User[] = [];
 const EMPTY_LEADS: Lead[] = [];

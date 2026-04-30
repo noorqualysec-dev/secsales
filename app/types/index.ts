@@ -21,6 +21,15 @@ export type LeadStatus =
   | "Won"
   | "Lost";
 
+export type LeadPipelineStatus =
+  | "Lead Captured"
+  | "Discovery Call Scheduled"
+  | "Requirement Gathering"
+  | "Proposal Sent"
+  | "Negotiation";
+
+export type LeadStatusBucket = LeadPipelineStatus | "Won" | "Lost";
+
 export type LeadSource =
   | "website"
   | "email_marketing"
@@ -254,7 +263,7 @@ export interface UserPerformanceStats {
   openDeals: number;       // non-Won/Lost
   wonDeals: number;
   lostDeals: number;
-  leadsByStatus: Record<LeadStatus, number>;
+  leadsByStatus: Record<LeadStatusBucket, number>;
   pipelineValue: number;   // sum of dealValue on open leads
   revenue: number;         // sum of dealValue on Won leads
   totalProposals: number;

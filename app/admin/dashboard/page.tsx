@@ -18,10 +18,10 @@ import {
   UserPlus,
   Target,
   BarChart3,
-  ArrowRight,
-  FileText
+  ArrowRight
 } from "lucide-react";
 import Link from "next/link";
+import { PIPELINE_LEAD_STATUSES } from "@/app/lib/leadStatus";
 
 export default function AdminDashboard() {
   const { data: userData, isLoading: userLoading } = useAdminUsers();
@@ -46,13 +46,11 @@ export default function AdminDashboard() {
   ];
 
   const pipelineStages = [
-    { name: "Lead Captured", color: "bg-slate-500", icon: Target },
-    { name: "Discovery Call Scheduled", color: "bg-blue-500", icon: Activity },
-    { name: "Requirement Gathering", color: "bg-indigo-500", icon: ShieldCheck },
-    { name: "Pre-Assessment Form Sent", color: "bg-violet-500", icon: FileText },
-    { name: "Proposal Preparation", color: "bg-purple-500", icon: BarChart3 },
-    { name: "Proposal Sent", color: "bg-amber-500", icon: HandCoins },
-    { name: "Negotiation", color: "bg-orange-500", icon: Clock },
+    { name: PIPELINE_LEAD_STATUSES[0], color: "bg-slate-500", icon: Target },
+    { name: PIPELINE_LEAD_STATUSES[1], color: "bg-blue-500", icon: Activity },
+    { name: PIPELINE_LEAD_STATUSES[2], color: "bg-indigo-500", icon: ShieldCheck },
+    { name: PIPELINE_LEAD_STATUSES[3], color: "bg-amber-500", icon: HandCoins },
+    { name: PIPELINE_LEAD_STATUSES[4], color: "bg-orange-500", icon: Clock },
     { name: "Won", color: "bg-emerald-500", icon: TrendingUp },
     { name: "Lost", color: "bg-rose-500", icon: Activity }
   ];

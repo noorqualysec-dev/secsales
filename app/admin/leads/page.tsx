@@ -22,6 +22,7 @@ import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import type { Lead, User, TimelineEvent } from "@/app/types";
+import { getLeadOutcome, getLeadStage } from "@/app/lib/leadStatus";
 
 function TimelineModal({ lead, onClose }: { lead: Lead; onClose: () => void }) {
   // ... (keeping internal logic same, but adding icons)
@@ -97,13 +98,13 @@ export default function AdminLeadsPage() {
     });
   };
 
-  const getStatusBadge = (status: string) => {
+  const getStatusBadge = (lead: Lead) => {
+    const outcome = getLeadOutcome(lead);
+    const status = outcome === "won" ? "Won" : outcome === "lost" ? "Lost" : getLeadStage(lead);
     const colors: Record<string, string> = {
       "Lead Captured": "bg-slate-50 text-slate-600 border-slate-100",
       "Discovery Call Scheduled": "bg-blue-50 text-blue-600 border-blue-100",
       "Requirement Gathering": "bg-indigo-50 text-indigo-600 border-indigo-100",
-      "Pre-Assessment Form Sent": "bg-violet-50 text-violet-600 border-violet-100",
-      "Proposal Preparation": "bg-purple-50 text-purple-600 border-purple-100",
       "Proposal Sent": "bg-amber-50 text-amber-600 border-amber-100",
       "Negotiation": "bg-orange-50 text-orange-600 border-orange-100",
       "Won": "bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-50",
@@ -235,7 +236,7 @@ export default function AdminLeadsPage() {
                      </div>
                   </td>
                   <td className="px-8 py-5">
-                    {getStatusBadge(lead.status)}
+                    {getStatusBadge(lead)}
                   </td>
                   <td className="px-8 py-5">
                     <div className="flex items-center gap-2 group-hover:translate-x-1 transition-transform duration-300">

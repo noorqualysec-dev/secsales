@@ -1,20 +1,15 @@
 import type {
   Lead,
-  LeadStatus,
+  LeadStatusBucket,
   Proposal,
   ProposalStatus,
   User,
   UserPerformanceStats,
 } from "@/app/types";
+import { PIPELINE_LEAD_STATUSES, getLeadOutcome, getLeadStage } from "@/app/lib/leadStatus";
 
-export const LEAD_STATUSES: LeadStatus[] = [
-  "Lead Captured",
-  "Discovery Call Scheduled",
-  "Requirement Gathering",
-  "Pre-Assessment Form Sent",
-  "Proposal Preparation",
-  "Proposal Sent",
-  "Negotiation",
+export const LEAD_STATUSES: LeadStatusBucket[] = [
+  ...PIPELINE_LEAD_STATUSES,
   "Won",
   "Lost",
 ];
@@ -42,24 +37,25 @@ export function getUserProposals(userId: string, proposals: Proposal[]): Proposa
   );
 }
 
+export function getLeadStatusBucket(lead: Lead): LeadStatusBucket {
+  const outcome = getLeadOutcome(lead);
+  if (outcome === "won") return "Won";
+  if (outcome === "lost") return "Lost";
+  return getLeadStage(lead);
+}
+
 export function createEmptyStats(userId: string): UserPerformanceStats {
+  const leadsByStatus = Object.fromEntries(
+    LEAD_STATUSES.map((status) => [status, 0])
+  ) as UserPerformanceStats["leadsByStatus"];
+
   return {
     userId,
     totalLeads: 0,
     openDeals: 0,
     wonDeals: 0,
     lostDeals: 0,
-    leadsByStatus: {
-      "Lead Captured": 0,
-      "Discovery Call Scheduled": 0,
-      "Requirement Gathering": 0,
-      "Pre-Assessment Form Sent": 0,
-      "Proposal Preparation": 0,
-      "Proposal Sent": 0,
-      Negotiation: 0,
-      Won: 0,
-      Lost: 0,
-    },
+    leadsByStatus,
     pipelineValue: 0,
     revenue: 0,
     totalProposals: 0,
@@ -82,12 +78,14 @@ export function computeAllUserStats(
     const userProposals = getUserProposals(user._id, proposals);
 
     userLeads.forEach((lead) => {
-      stats.leadsByStatus[lead.status] += 1;
+      const statusBucket = getLeadStatusBucket(lead);
+      const outcome = getLeadOutcome(lead);
+      stats.leadsByStatus[statusBucket] += 1;
 
-      if (lead.status === "Won") {
+      if (outcome === "won") {
         stats.wonDeals += 1;
         stats.revenue += lead.dealValue || 0;
-      } else if (lead.status === "Lost") {
+      } else if (outcome === "lost") {
         stats.lostDeals += 1;
       } else {
         stats.openDeals += 1;
@@ -129,7 +127,7 @@ export function formatRoleBadgeColor(role: User["role"]): string {
   return "bg-slate-100 text-slate-700";
 }
 
-export function formatLeadStatusBadgeColor(status: LeadStatus): string {
+export function formatLeadStatusBadgeColor(status: LeadStatusBucket): string {
   if (status === "Won") return "bg-emerald-100 text-emerald-700";
   if (status === "Lost") return "bg-rose-100 text-rose-600";
   if (status === "Negotiation") return "bg-orange-100 text-orange-700";

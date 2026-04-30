@@ -11,22 +11,18 @@ import {
   TrendingUp, IndianRupee, Target, Percent, Trophy,
   BarChart3, GitMerge, PieChart as PieIcon, CheckCircle, XCircle, SlidersHorizontal,
 } from "lucide-react";
-import type { Lead, LeadOutcome, LeadStatus, User } from "@/app/types";
+import type { Lead, User } from "@/app/types";
+import { PIPELINE_LEAD_STATUSES, getLeadOutcome, getLeadStage } from "@/app/lib/leadStatus";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const PIPELINE_STAGES = [
-  "Lead Captured", "Discovery Call Scheduled", "Requirement Gathering",
-  "Pre-Assessment Form Sent", "Proposal Preparation", "Proposal Sent",
-  "Negotiation",
-] as const;
+const PIPELINE_STAGES = PIPELINE_LEAD_STATUSES;
 
 const STAGE_COLORS: Record<string, string> = {
   "Lead Captured":               "#94a3b8",
   "Discovery Call Scheduled":    "#6366f1",
   "Requirement Gathering":       "#8b5cf6",
-  "Pre-Assessment Form Sent":    "#a78bfa",
-  "Proposal Preparation":        "#f59e0b",
+
   "Proposal Sent":               "#f97316",
   "Negotiation":                 "#fb923c",
   "Won":                         "#10b981",
@@ -45,21 +41,7 @@ const MONTH_RANGE_OPTIONS = [
   { label: "24M", value: 24 },
 ];
 
-function getLeadOutcome(lead: Lead): LeadOutcome {
-  if (lead.outcome === "won" || lead.outcome === "lost" || lead.outcome === "cancelled") {
-    return lead.outcome;
-  }
-  if (lead.status === "Won") return "won";
-  if (lead.status === "Lost") return "lost";
-  return "open";
-}
 
-function getLeadStage(lead: Lead): LeadStatus {
-  if (lead.status !== "Won" && lead.status !== "Lost") {
-    return lead.status;
-  }
-  return lead.lostAtStatus || lead.wonAtStatus || "Lead Captured";
-}
 
 // ── Custom Tooltips ───────────────────────────────────────────────────────────
 
@@ -760,3 +742,4 @@ export default function AdminAnalyticsPage() {
     </div>
   );
 }
+

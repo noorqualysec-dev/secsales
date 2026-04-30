@@ -21,20 +21,21 @@ import {
   useAdminProposals,
   useAdminUsers,
 } from "@/app/hooks/useAdmin";
-import type { Lead, LeadStatus, Proposal, ProposalStatus, User } from "@/app/types";
+import type { Lead, LeadStatusBucket, Proposal, ProposalStatus, User } from "@/app/types";
 import {
   computeAllUserStats,
   createEmptyStats,
   formatLeadStatusBadgeColor,
   formatRoleBadgeColor,
   formatRoleLabel,
+  getLeadStatusBucket,
   getUserLeads,
   getUserProposals,
   LEAD_STATUSES,
   PROPOSAL_STATUSES,
 } from "../performance";
 
-type LeadFilter = "all" | LeadStatus;
+type LeadFilter = "all" | LeadStatusBucket;
 type ProposalFilter = "all" | ProposalStatus;
 
 const EMPTY_USERS: User[] = [];
@@ -112,20 +113,13 @@ export default function SalesRepProfilePage() {
   );
 
   const statusValueMap = useMemo(() => {
-    const map: Record<LeadStatus, number> = {
-      "Lead Captured": 0,
-      "Discovery Call Scheduled": 0,
-      "Requirement Gathering": 0,
-      "Pre-Assessment Form Sent": 0,
-      "Proposal Preparation": 0,
-      "Proposal Sent": 0,
-      Negotiation: 0,
-      Won: 0,
-      Lost: 0,
-    };
+    const map = Object.fromEntries(
+      LEAD_STATUSES.map((status) => [status, 0])
+    ) as Record<LeadStatusBucket, number>;
 
     userLeads.forEach((lead) => {
-      map[lead.status] += lead.dealValue || 0;
+      const statusBucket = getLeadStatusBucket(lead);
+      map[statusBucket] += lead.dealValue || 0;
     });
 
     return map;
@@ -135,7 +129,8 @@ export default function SalesRepProfilePage() {
     const q = searchQuery.trim().toLowerCase();
 
     return userLeads.filter((lead) => {
-      if (leadFilter !== "all" && lead.status !== leadFilter) return false;
+      const statusBucket = getLeadStatusBucket(lead);
+      if (leadFilter !== "all" && statusBucket !== leadFilter) return false;
 
       if (!q) return true;
       const fullName = `${lead.firstName} ${lead.lastName}`.toLowerCase();
@@ -452,7 +447,9 @@ export default function SalesRepProfilePage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
-                {filteredLeads.map((lead) => (
+                {filteredLeads.map((lead) => {
+                  const statusBucket = getLeadStatusBucket(lead);
+                  return (
                   <tr key={lead._id}>
                     <td className="px-6 py-4">
                       <p className="font-bold text-slate-900">
@@ -466,17 +463,17 @@ export default function SalesRepProfilePage() {
                     <td className="px-6 py-4 text-center">
                       <span
                         className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-extrabold ${formatLeadStatusBadgeColor(
-                          lead.status
+                          statusBucket
                         )}`}
                       >
-                        {lead.status}
+                        {statusBucket}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-right font-bold text-slate-900">
                       INR {(lead.dealValue || 0).toLocaleString("en-IN")}
                     </td>
                   </tr>
-                ))}
+                )})}
               </tbody>
             </table>
           </div>

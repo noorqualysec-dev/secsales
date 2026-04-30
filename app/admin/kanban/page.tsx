@@ -38,60 +38,32 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useState, useMemo, useCallback, useEffect, memo } from "react";
-import type { Lead, LeadOutcome, LeadStatus } from "@/app/types";
+import type { Lead, LeadOutcome } from "@/app/types";
+import {
+  PIPELINE_LEAD_STATUSES,
+  getLeadBoardColumn,
+  getLeadOutcome,
+  getLeadStage,
+  type PipelineLeadStatus,
+} from "@/app/lib/leadStatus";
 
-const STAGES: LeadStatus[] = [
-  "Lead Captured",
-  "Discovery Call Scheduled",
-  "Requirement Gathering",
-  "Pre-Assessment Form Sent",
-  "Proposal Preparation",
-  "Proposal Sent",
-  "Negotiation",
-];
-
-const BOARD_COLUMNS = [...STAGES, "Won", "Lost"] as const;
+const BOARD_COLUMNS = [...PIPELINE_LEAD_STATUSES, "Won", "Lost"] as const;
 type BoardColumn = typeof BOARD_COLUMNS[number];
 
 const STAGE_COLORS: Record<string, string> = {
   "Lead Captured": "bg-slate-500",
   "Discovery Call Scheduled": "bg-blue-500",
   "Requirement Gathering": "bg-indigo-500",
-  "Pre-Assessment Form Sent": "bg-violet-500",
-  "Proposal Preparation": "bg-purple-500",
   "Proposal Sent": "bg-amber-500",
   "Negotiation": "bg-orange-500",
   "Won": "bg-emerald-500",
   "Lost": "bg-rose-500"
 };
 
-function getLeadOutcome(lead: Lead): LeadOutcome {
-  if (lead.outcome === "won" || lead.outcome === "lost" || lead.outcome === "cancelled") {
-    return lead.outcome;
-  }
-  if (lead.status === "Won") return "won";
-  if (lead.status === "Lost") return "lost";
-  return "open";
-}
-
-function getLeadStage(lead: Lead): LeadStatus {
-  if (lead.status !== "Won" && lead.status !== "Lost") {
-    return lead.status;
-  }
-  return lead.lostAtStatus || lead.wonAtStatus || "Lead Captured";
-}
-
-function getBoardColumn(lead: Lead): BoardColumn {
-  const outcome = getLeadOutcome(lead);
-  if (outcome === "won") return "Won";
-  if (outcome === "lost") return "Lost";
-  return getLeadStage(lead);
-}
-
 function applyBoardColumn(lead: Lead, column: BoardColumn): Lead {
   if (column === "Won") return { ...lead, outcome: "won" };
   if (column === "Lost") return { ...lead, outcome: "lost" };
-  return { ...lead, status: column, outcome: "open" };
+  return { ...lead, status: column as PipelineLeadStatus, outcome: "open" };
 }
 
 const dropAnimation: DropAnimation = {
@@ -126,7 +98,7 @@ const KanbanCard = memo(({ lead, isOverlay, onOpen }: { lead: Lead; isOverlay?: 
     transition,
     transform: CSS.Translate.toString(transform),
   };
-  const column = getBoardColumn(lead);
+  const column = getLeadBoardColumn(lead) as BoardColumn;
 
   const cardContent = (
     <div
@@ -240,11 +212,11 @@ function OutcomeModal({
   isSaving,
 }: {
   lead: Lead;
-  onSave: (payload: { status: LeadStatus; outcome: LeadOutcome; lostReason?: string; latestRemark?: string }) => void;
+  onSave: (payload: { status: PipelineLeadStatus; outcome: LeadOutcome; lostReason?: string; latestRemark?: string }) => void;
   onClose: () => void;
   isSaving: boolean;
 }) {
-  const [status, setStatus] = useState<LeadStatus>(getLeadStage(lead));
+  const [status, setStatus] = useState<PipelineLeadStatus>(getLeadStage(lead));
   const [outcome, setOutcome] = useState<LeadOutcome>(getLeadOutcome(lead));
   const [latestRemark, setLatestRemark] = useState("");
   const [lostReason, setLostReason] = useState(lead.lostReason ?? "");
@@ -263,8 +235,8 @@ function OutcomeModal({
         <div className="p-8 space-y-5">
           <div>
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Pipeline Stage</label>
-            <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as LeadStatus)}>
-              {STAGES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
+            <select className={inputCls} value={status} onChange={(e) => setStatus(e.target.value as PipelineLeadStatus)}>
+              {PIPELINE_LEAD_STATUSES.map((stage) => <option key={stage} value={stage}>{stage}</option>)}
             </select>
           </div>
           <div>
@@ -353,7 +325,7 @@ export default function AdminKanbanPage() {
       `${l.firstName} ${l.lastName}`.toLowerCase().includes(search.toLowerCase()) ||
       l.company?.toLowerCase().includes(search.toLowerCase())
     ).forEach(l => {
-      const column = getBoardColumn(l);
+      const column = getLeadBoardColumn(l) as BoardColumn;
       if (cols[column]) cols[column].push(l);
     });
     return cols;
@@ -385,8 +357,8 @@ export default function AdminKanbanPage() {
       if (isOverACard) {
         const overIdx = prev.findIndex(l => l._id === overId);
         const overLead = prev[overIdx];
-        const overColumn = getBoardColumn(overLead);
-        if (getBoardColumn(activeL) !== overColumn && overColumn !== "Won" && overColumn !== "Lost") {
+        const overColumn = getLeadBoardColumn(overLead) as BoardColumn;
+        if ((getLeadBoardColumn(activeL) as BoardColumn) !== overColumn && overColumn !== "Won" && overColumn !== "Lost") {
           const updated = applyBoardColumn(activeL, overColumn);
           const newList = [...prev];
           newList[activeIdx] = updated;
@@ -395,7 +367,7 @@ export default function AdminKanbanPage() {
       }
 
       const isOverAColumn = BOARD_COLUMNS.includes(overId as BoardColumn);
-      if (isOverAColumn && overId !== "Won" && overId !== "Lost" && getBoardColumn(activeL) !== overId) {
+      if (isOverAColumn && overId !== "Won" && overId !== "Lost" && (getLeadBoardColumn(activeL) as BoardColumn) !== overId) {
         const updated = applyBoardColumn(activeL, overId as BoardColumn);
         const newList = [...prev];
         newList[activeIdx] = updated;
@@ -417,16 +389,18 @@ export default function AdminKanbanPage() {
     const activeLead = localLeads.find(l => l._id === activeId);
     if (!activeLead) return;
 
-    let finalColumn: BoardColumn = getBoardColumn(activeLead);
+    let finalColumn: BoardColumn = getLeadBoardColumn(activeLead) as BoardColumn;
     if (BOARD_COLUMNS.includes(overId as BoardColumn)) {
       finalColumn = overId as BoardColumn;
     } else {
       const overLead = localLeads.find(l => l._id === overId);
-      if (overLead) finalColumn = getBoardColumn(overLead);
+      if (overLead) finalColumn = getLeadBoardColumn(overLead) as BoardColumn;
     }
 
     const originalLead = leadsData?.data?.find(l => l._id === activeId);
-    const originalColumn = originalLead ? getBoardColumn(originalLead) : getBoardColumn(activeLead);
+    const originalColumn = originalLead
+      ? (getLeadBoardColumn(originalLead) as BoardColumn)
+      : (getLeadBoardColumn(activeLead) as BoardColumn);
     if (finalColumn === "Won" || finalColumn === "Lost") {
       setLocalLeads(leadsData?.data ?? []);
       if (originalLead) setEditingLead(originalLead);
