@@ -1,13 +1,26 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/app/services/api";
-import type { Lead, ApiResponse, CompanySummary, CompanyDetails, LeadContact } from "@/app/types";
+import type { Lead, ApiResponse, CompanySummary, CompanyDetails, LeadContact, User } from "@/app/types";
 
 export type LeadPayload = Omit<Partial<Lead>, "contacts"> & {
   contacts?: Array<Partial<LeadContact>>;
 };
 
+type LeadJourneyData = {
+  lead: Lead;
+  assignedUser: Pick<User, "_id" | "name" | "email" | "role"> | null;
+  proposals: Array<{
+    _id: string;
+    value: number;
+    status: string;
+    createdAt: number;
+  }>;
+};
+
 const LEADS_KEY = ["leads"];
 const COMPANIES_KEY = [...LEADS_KEY, "companies"];
+const PROPOSALS_KEY = ["proposals"];
+const ADMIN_PROPOSALS_KEY = ["admin", "proposals"];
 
 export function useLeads(options: { enabled?: boolean } = {}) {
   return useQuery<ApiResponse<Lead[]>>({
@@ -29,6 +42,8 @@ export function useCreateLead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: LEADS_KEY });
       qc.invalidateQueries({ queryKey: COMPANIES_KEY });
+      qc.invalidateQueries({ queryKey: PROPOSALS_KEY });
+      qc.invalidateQueries({ queryKey: ADMIN_PROPOSALS_KEY });
     },
   });
 }
@@ -41,6 +56,8 @@ export function useUpdateLead() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: LEADS_KEY });
       qc.invalidateQueries({ queryKey: COMPANIES_KEY });
+      qc.invalidateQueries({ queryKey: PROPOSALS_KEY });
+      qc.invalidateQueries({ queryKey: ADMIN_PROPOSALS_KEY });
     },
   });
 }
@@ -74,21 +91,25 @@ export function useBulkImportLeads() {
 }
 
 export function useLeadJourney(id: string) {
-  return useQuery<ApiResponse<{ lead: Lead; assignedUser: any; proposals: any[] }>>({
+  return useQuery<ApiResponse<LeadJourneyData>>({
     queryKey: [...LEADS_KEY, id, "journey"],
     queryFn: async () => {
-      const res = await api.get<ApiResponse<{ lead: Lead; assignedUser: any; proposals: any[] }>>(`/leads/${id}/journey`);
+      const res = await api.get<ApiResponse<LeadJourneyData>>(`/leads/${id}/journey`);
       return res.data;
     },
     enabled: !!id,
   });
 }
 
-export function useCompanies() {
+export function useCompanies(options: { globalScope?: boolean } = {}) {
+  const globalScope = options.globalScope ?? false;
+
   return useQuery<ApiResponse<CompanySummary[]>>({
-    queryKey: COMPANIES_KEY,
+    queryKey: [...COMPANIES_KEY, globalScope ? "global" : "scoped"],
     queryFn: async () => {
-      const res = await api.get<ApiResponse<CompanySummary[]>>("/leads/companies");
+      const res = await api.get<ApiResponse<CompanySummary[]>>("/leads/companies", {
+        params: globalScope ? { scope: "all" } : undefined,
+      });
       return res.data;
     },
     staleTime: 60_000,
@@ -96,11 +117,15 @@ export function useCompanies() {
   });
 }
 
-export function useCompanyDetails(companyKey: string) {
+export function useCompanyDetails(companyKey: string, options: { globalScope?: boolean } = {}) {
+  const globalScope = options.globalScope ?? false;
+
   return useQuery<ApiResponse<CompanyDetails>>({
-    queryKey: [...COMPANIES_KEY, companyKey],
+    queryKey: [...COMPANIES_KEY, globalScope ? "global" : "scoped", companyKey],
     queryFn: async () => {
-      const res = await api.get<ApiResponse<CompanyDetails>>(`/leads/companies/${companyKey}`);
+      const res = await api.get<ApiResponse<CompanyDetails>>(`/leads/companies/${companyKey}`, {
+        params: globalScope ? { scope: "all" } : undefined,
+      });
       return res.data;
     },
     enabled: !!companyKey,

@@ -19,6 +19,7 @@ type CompanyDetailViewProps = {
   backHref: string;
   backLabel: string;
   leadBasePath?: string;
+  globalScope?: boolean;
 };
 
 function formatDate(value?: number) {
@@ -39,8 +40,9 @@ export function CompanyDetailView({
   backHref,
   backLabel,
   leadBasePath = "/leads",
+  globalScope = false,
 }: CompanyDetailViewProps) {
-  const { data, isLoading, error } = useCompanyDetails(companyKey);
+  const { data, isLoading, error } = useCompanyDetails(companyKey, { globalScope });
   const company = data?.data;
 
   if (error) {

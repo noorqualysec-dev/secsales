@@ -226,7 +226,7 @@ export default function ProposalsPage() {
               return typeof leadAny === "string" ? leadAny : (leadAny._id ?? "");
             })(),
             value: String(modal.proposal.value),
-            testingScope: modal.proposal.testingScope,
+            testingScope: Array.isArray(modal.proposal.testingScope) ? modal.proposal.testingScope : [],
             status: modal.proposal.status,
             notes: modal.proposal.notes ?? "",
           } : emptyForm}
@@ -277,7 +277,9 @@ export default function ProposalsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {proposals.map((p: Proposal) => (
+                  {proposals.map((p: Proposal) => {
+                    const testingScope = Array.isArray(p.testingScope) ? p.testingScope : [];
+                    return (
                     <tr key={p._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-5 py-4 font-medium text-slate-800">{getLeadName(p.lead as Lead | string)}</td>
                       <td className="px-5 py-4 text-slate-700 font-semibold">
@@ -285,11 +287,11 @@ export default function ProposalsPage() {
                       </td>
                       <td className="px-5 py-4 hidden md:table-cell">
                         <div className="flex flex-wrap gap-1">
-                          {p.testingScope.slice(0, 2).map((s) => (
+                          {testingScope.slice(0, 2).map((s) => (
                             <span key={s} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full">{s}</span>
                           ))}
-                          {p.testingScope.length > 2 && (
-                            <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">+{p.testingScope.length - 2}</span>
+                          {testingScope.length > 2 && (
+                            <span className="text-xs bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full">+{testingScope.length - 2}</span>
                           )}
                         </div>
                       </td>
@@ -319,7 +321,8 @@ export default function ProposalsPage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

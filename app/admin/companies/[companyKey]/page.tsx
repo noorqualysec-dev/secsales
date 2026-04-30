@@ -13,6 +13,7 @@ export default function AdminCompanyDetailPage() {
       backHref="/admin/companies"
       backLabel="Back to Companies"
       leadBasePath="/admin/leads"
+      globalScope
     />
   );
 }

@@ -95,6 +95,8 @@ export function useUpdateLeadStatus() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ADMIN_LEADS_KEY });
       queryClient.invalidateQueries({ queryKey: ADMIN_STATS_KEY });
+      queryClient.invalidateQueries({ queryKey: ADMIN_PROPOSALS_KEY });
+      queryClient.invalidateQueries({ queryKey: ["proposals"] });
     },
   });
 }

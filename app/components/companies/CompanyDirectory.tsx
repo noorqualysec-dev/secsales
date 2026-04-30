@@ -20,6 +20,7 @@ type CompanyDirectoryProps = {
   eyebrow: string;
   title: string;
   description: string;
+  globalScope?: boolean;
   emptyTitle?: string;
   emptyDescription?: string;
 };
@@ -56,10 +57,11 @@ export function CompanyDirectory({
   eyebrow,
   title,
   description,
+  globalScope = false,
   emptyTitle = "No companies captured yet",
   emptyDescription = "Add leads with a company name and they will appear here automatically.",
 }: CompanyDirectoryProps) {
-  const { data, isLoading, error } = useCompanies();
+  const { data, isLoading, error } = useCompanies({ globalScope });
   const companies = data?.data ?? [];
 
   const [query, setQuery] = useState("");
