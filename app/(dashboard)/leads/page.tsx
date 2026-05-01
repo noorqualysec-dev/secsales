@@ -24,6 +24,8 @@ const EMPLOYEE_STRENGTHS = ["1-10", "11-50", "51-200", "201-500", "501-1000", "1
 const LEAD_REGIONS: LeadRegion[] = [
   "India",
   "Middle-East",
+  "Europe",
+  "Africa",
   "North-America",
   "SouthEast-Asia",
   "Australia",
@@ -218,6 +220,10 @@ function splitLegacyPhone(full: string): { phoneCountryCode: string; phone: stri
   return { phoneCountryCode: "", phone: t, country: "" };
 }
 
+function leadFullName(lead: Pick<Lead, "firstName" | "lastName">): string {
+  return `${lead.firstName} ${lead.lastName ?? ""}`.trim();
+}
+
 // ── Components ────────────────────────────────────────────────────────────────
 
 const emptyForm = {
@@ -307,7 +313,7 @@ function leadToFormInitial(lead: Lead): LeadForm {
 
   return {
     firstName: lead.firstName,
-    lastName: lead.lastName,
+    lastName: lead.lastName ?? "",
     email: lead.email,
     phoneCountryCode,
     phone,
@@ -374,6 +380,7 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
 }) {
   const [form, setForm] = useState(initial);
   const [formError, setFormError] = useState<string | null>(null);
+  const isEditing = Boolean(initial.firstName);
   const set = (k: keyof LeadForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -477,8 +484,8 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                 <input className={inputCls} value={form.firstName} onChange={set("firstName")} required placeholder="John" />
               </div>
               <div>
-                <label className={labelCls}>Last Name *</label>
-                <input className={inputCls} value={form.lastName} onChange={set("lastName")} required placeholder="Doe" />
+                <label className={labelCls}>Last Name (optional)</label>
+                <input className={inputCls} value={form.lastName} onChange={set("lastName")} placeholder="Doe" />
               </div>
               <div className="col-span-2">
                 <label className={labelCls}>Primary Email *</label>
@@ -575,33 +582,37 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                   />
                 </div>
               )}
-              <div>
-                <label className={labelCls}>Hiring / expansion signal</label>
-                <input
-                  className={inputCls}
-                  value={form.companyInsights.hiringSignal}
-                  onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, hiringSignal: e.target.value } }))}
-                  placeholder="Hiring security team, new compliance push, new product line..."
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Recent trigger event</label>
-                <input
-                  className={inputCls}
-                  value={form.companyInsights.recentTrigger}
-                  onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, recentTrigger: e.target.value } }))}
-                  placeholder="Funding round, audit deadline, product launch..."
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Next account opportunity</label>
-                <input
-                  className={inputCls}
-                  value={form.companyInsights.nextOpportunity}
-                  onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, nextOpportunity: e.target.value } }))}
-                  placeholder="Intro to infra lead, renewal in June, cross-sell testing..."
-                />
-              </div>
+              {isEditing && (
+                <>
+                  <div>
+                    <label className={labelCls}>Hiring / expansion signal</label>
+                    <input
+                      className={inputCls}
+                      value={form.companyInsights.hiringSignal}
+                      onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, hiringSignal: e.target.value } }))}
+                      placeholder="Hiring security team, new compliance push, new product line..."
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Recent trigger event</label>
+                    <input
+                      className={inputCls}
+                      value={form.companyInsights.recentTrigger}
+                      onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, recentTrigger: e.target.value } }))}
+                      placeholder="Funding round, audit deadline, product launch..."
+                    />
+                  </div>
+                  <div>
+                    <label className={labelCls}>Next account opportunity</label>
+                    <input
+                      className={inputCls}
+                      value={form.companyInsights.nextOpportunity}
+                      onChange={(e) => setForm((f) => ({ ...f, companyInsights: { ...f.companyInsights, nextOpportunity: e.target.value } }))}
+                      placeholder="Intro to infra lead, renewal in June, cross-sell testing..."
+                    />
+                  </div>
+                </>
+              )}
               <div className="col-span-2">
                 <label className={labelCls}>Shared account notes</label>
                 <textarea
@@ -1082,7 +1093,7 @@ export default function LeadsPage() {
     const working = leads
       .filter((lead) => {
         if (!normalizedName) return true;
-        const fullName = `${lead.firstName} ${lead.lastName}`.toLowerCase();
+        const fullName = leadFullName(lead).toLowerCase();
         const email = (lead.email ?? "").toLowerCase();
         const company = (lead.company ?? "").toLowerCase();
         return fullName.includes(normalizedName) || email.includes(normalizedName) || company.includes(normalizedName);
@@ -1096,10 +1107,10 @@ export default function LeadsPage() {
         return leadCreatedAtTimestamp(a) - leadCreatedAtTimestamp(b);
       }
       if (sortOption === "name_asc") {
-        return `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`);
+        return leadFullName(a).localeCompare(leadFullName(b));
       }
       if (sortOption === "name_desc") {
-        return `${b.firstName} ${b.lastName}`.localeCompare(`${a.firstName} ${a.lastName}`);
+        return leadFullName(b).localeCompare(leadFullName(a));
       }
       return leadCreatedAtTimestamp(b) - leadCreatedAtTimestamp(a);
     });
@@ -1348,7 +1359,7 @@ export default function LeadsPage() {
                             {lead.firstName[0]}
                           </div>
                           <div>
-                            <p className="text-sm font-black text-slate-900 tracking-tight uppercase">{lead.firstName} {lead.lastName}</p>
+                            <p className="text-sm font-black text-slate-900 tracking-tight uppercase">{leadFullName(lead)}</p>
                             <p className="text-xs font-bold text-slate-400 mt-0.5">{lead.designation || lead.email}</p>
                           </div>
                         </div>

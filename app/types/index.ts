@@ -44,6 +44,8 @@ export type LeadSource =
 export type LeadRegion =
   | "India"
   | "Middle-East"
+  | "Europe"
+  | "Africa"
   | "North-America"
   | "SouthEast-Asia"
   | "Australia"
@@ -101,7 +103,7 @@ export interface CompanyInsights {
 export interface Lead {
   _id: string;
   firstName: string;
-  lastName: string;
+  lastName?: string;
   email: string;
   designation?: string;
   employeeStrength?: string;
