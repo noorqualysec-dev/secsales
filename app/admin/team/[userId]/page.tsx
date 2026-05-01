@@ -8,6 +8,7 @@ import {
   BarChart3,
   Briefcase,
   CheckCircle2,
+  Download,
   FileText,
   Funnel,
   Search,
@@ -17,6 +18,7 @@ import {
   XCircle,
 } from "lucide-react";
 import {
+  useDownloadSalesRepReport,
   useAdminLeads,
   useAdminProposals,
   useAdminUsers,
@@ -37,10 +39,32 @@ import {
 
 type LeadFilter = "all" | LeadStatusBucket;
 type ProposalFilter = "all" | ProposalStatus;
+type ReportPeriod = "current_month" | "last_3_months" | "custom";
 
 const EMPTY_USERS: User[] = [];
 const EMPTY_LEADS: Lead[] = [];
 const EMPTY_PROPOSALS: Proposal[] = [];
+
+function getCurrentMonthToken(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function parseErrorMessage(error: unknown): string {
+  if (
+    error &&
+    typeof error === "object" &&
+    "response" in error &&
+    typeof (error as { response?: unknown }).response === "object"
+  ) {
+    const response = (error as { response?: { data?: { message?: string } } }).response;
+    const message = response?.data?.message;
+    if (message) return message;
+  }
+
+  if (error instanceof Error && error.message) return error.message;
+  return "Unable to export report right now. Please try again.";
+}
 
 function getProposalStatusBadgeColor(status: ProposalStatus): string {
   if (status === "Accepted") return "bg-emerald-100 text-emerald-700";
@@ -72,6 +96,7 @@ export default function SalesRepProfilePage() {
   const params = useParams<{ userId: string | string[] }>();
   const rawUserId = params.userId;
   const userId = Array.isArray(rawUserId) ? rawUserId[0] : rawUserId;
+  const downloadSalesRepReport = useDownloadSalesRepReport();
 
   const { data: usersData, isLoading: usersLoading } = useAdminUsers();
   const { data: leadsData, isLoading: leadsLoading } = useAdminLeads();
@@ -84,6 +109,10 @@ export default function SalesRepProfilePage() {
   const [leadFilter, setLeadFilter] = useState<LeadFilter>("all");
   const [proposalFilter, setProposalFilter] = useState<ProposalFilter>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("current_month");
+  const [reportFromMonth, setReportFromMonth] = useState(getCurrentMonthToken());
+  const [reportToMonth, setReportToMonth] = useState(getCurrentMonthToken());
+  const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const isLoading = usersLoading || leadsLoading || proposalLoading;
 
@@ -159,6 +188,40 @@ export default function SalesRepProfilePage() {
       );
     });
   }, [leadsMap, proposalFilter, searchQuery, userProposals]);
+  const isCustomRangeInvalid =
+    reportPeriod === "custom" &&
+    (!reportFromMonth || !reportToMonth || reportFromMonth > reportToMonth);
+  const canExportProfile = user ? user.role !== "admin" : false;
+
+  const buildReportPayload = () => {
+    if (reportPeriod !== "custom") {
+      return { period: reportPeriod as Exclude<ReportPeriod, "custom"> };
+    }
+
+    if (reportFromMonth && reportToMonth && reportFromMonth === reportToMonth) {
+      return { period: "custom" as const, month: reportFromMonth };
+    }
+
+    return {
+      period: "custom" as const,
+      fromMonth: reportFromMonth,
+      toMonth: reportToMonth || reportFromMonth,
+    };
+  };
+
+  const handleDownloadReport = async () => {
+    if (!userId) return;
+
+    setDownloadError(null);
+    try {
+      await downloadSalesRepReport.mutateAsync({
+        userId,
+        filters: buildReportPayload(),
+      });
+    } catch (error) {
+      setDownloadError(parseErrorMessage(error));
+    }
+  };
 
   if (isLoading) {
     return (
@@ -203,7 +266,60 @@ export default function SalesRepProfilePage() {
           <ArrowLeft className="w-4 h-4" />
           Back to Team
         </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={reportPeriod}
+            onChange={(event) => setReportPeriod(event.target.value as ReportPeriod)}
+            className="px-4 py-2.5 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            title="Select export report period"
+          >
+            <option value="current_month">Current Month</option>
+            <option value="last_3_months">Last 3 Months</option>
+            <option value="custom">Custom Month Range</option>
+          </select>
+          {reportPeriod === "custom" && (
+            <>
+              <input
+                type="month"
+                value={reportFromMonth}
+                onChange={(event) => setReportFromMonth(event.target.value)}
+                className="px-3 py-2.5 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                title="From month"
+              />
+              <input
+                type="month"
+                value={reportToMonth}
+                onChange={(event) => setReportToMonth(event.target.value)}
+                className="px-3 py-2.5 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                title="To month"
+              />
+            </>
+          )}
+          <button
+            type="button"
+            onClick={handleDownloadReport}
+            disabled={!canExportProfile || downloadSalesRepReport.isPending || isCustomRangeInvalid}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            {downloadSalesRepReport.isPending ? "Exporting..." : "Export Report"}
+          </button>
+        </div>
       </div>
+
+      {!canExportProfile && (
+        <p className="text-sm font-semibold text-slate-500">
+          Export is available for sales reps and managers only.
+        </p>
+      )}
+      {isCustomRangeInvalid && (
+        <p className="text-sm font-semibold text-rose-600">
+          Select a valid custom month range before exporting.
+        </p>
+      )}
+      {downloadError && (
+        <p className="text-sm font-semibold text-rose-600">{downloadError}</p>
+      )}
 
       <div className="bg-white border border-slate-200 rounded-3xl shadow-lg p-6 md:p-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-5">

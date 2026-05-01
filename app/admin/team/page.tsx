@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   Activity,
+  Download,
   Eye,
   FilterX,
   Search,
@@ -12,6 +13,8 @@ import {
   Users2,
 } from "lucide-react";
 import {
+  useDownloadCombinedSalesRepReport,
+  useDownloadSalesRepReport,
   useAdminLeads,
   useAdminProposals,
   useAdminUsers,
@@ -28,15 +31,39 @@ import {
 type RoleFilter = "all" | User["role"];
 type ActiveFilter = "all" | "active" | "inactive";
 type StageFilter = "all" | LeadStatusBucket;
+type ReportPeriod = "current_month" | "last_3_months" | "custom";
 
 const EMPTY_USERS: User[] = [];
 const EMPTY_LEADS: Lead[] = [];
 const EMPTY_PROPOSALS: Proposal[] = [];
 
+function getCurrentMonthToken(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function parseErrorMessage(error: unknown): string {
+  if (
+    error &&
+    typeof error === "object" &&
+    "response" in error &&
+    typeof (error as { response?: unknown }).response === "object"
+  ) {
+    const response = (error as { response?: { data?: { message?: string } } }).response;
+    const message = response?.data?.message;
+    if (message) return message;
+  }
+
+  if (error instanceof Error && error.message) return error.message;
+  return "Unable to export report right now. Please try again.";
+}
+
 export default function TeamPerformancePage() {
   const { data: usersData, isLoading: usersLoading } = useAdminUsers();
   const { data: leadsData, isLoading: leadsLoading } = useAdminLeads();
   const { data: proposalData, isLoading: proposalLoading } = useAdminProposals();
+  const downloadCombinedReport = useDownloadCombinedSalesRepReport();
+  const downloadSalesRepReport = useDownloadSalesRepReport();
 
   const users = usersData?.data ?? EMPTY_USERS;
   const leads = leadsData?.data ?? EMPTY_LEADS;
@@ -46,6 +73,11 @@ export default function TeamPerformancePage() {
   const [roleFilter, setRoleFilter] = useState<RoleFilter>("all");
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>("all");
   const [stageFilter, setStageFilter] = useState<StageFilter>("all");
+  const [reportPeriod, setReportPeriod] = useState<ReportPeriod>("current_month");
+  const [reportFromMonth, setReportFromMonth] = useState(getCurrentMonthToken());
+  const [reportToMonth, setReportToMonth] = useState(getCurrentMonthToken());
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+  const [downloadingUserId, setDownloadingUserId] = useState<string | null>(null);
 
   const isLoading = usersLoading || leadsLoading || proposalLoading;
 
@@ -85,6 +117,50 @@ export default function TeamPerformancePage() {
     0
   );
   const totalRevenue = filteredStats.reduce((sum, stats) => sum + stats.revenue, 0);
+  const isCustomRangeInvalid =
+    reportPeriod === "custom" &&
+    (!reportFromMonth || !reportToMonth || reportFromMonth > reportToMonth);
+
+  const buildReportPayload = () => {
+    if (reportPeriod !== "custom") {
+      return { period: reportPeriod as Exclude<ReportPeriod, "custom"> };
+    }
+
+    if (reportFromMonth && reportToMonth && reportFromMonth === reportToMonth) {
+      return { period: "custom" as const, month: reportFromMonth };
+    }
+
+    return {
+      period: "custom" as const,
+      fromMonth: reportFromMonth,
+      toMonth: reportToMonth || reportFromMonth,
+    };
+  };
+
+  const handleDownloadAllSalesReps = async () => {
+    setDownloadError(null);
+    try {
+      await downloadCombinedReport.mutateAsync(buildReportPayload());
+    } catch (error) {
+      setDownloadError(parseErrorMessage(error));
+    }
+  };
+
+  const handleDownloadIndividualSalesRep = async (userId: string) => {
+    setDownloadError(null);
+    setDownloadingUserId(userId);
+
+    try {
+      await downloadSalesRepReport.mutateAsync({
+        userId,
+        filters: buildReportPayload(),
+      });
+    } catch (error) {
+      setDownloadError(parseErrorMessage(error));
+    } finally {
+      setDownloadingUserId(null);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -191,6 +267,45 @@ export default function TeamPerformancePage() {
             ))}
           </select>
 
+          <select
+            value={reportPeriod}
+            onChange={(event) => setReportPeriod(event.target.value as ReportPeriod)}
+            className="px-4 py-2.5 border border-slate-200 rounded-2xl text-sm font-bold text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+            title="Select export report period"
+          >
+            <option value="current_month">Current Month</option>
+            <option value="last_3_months">Last 3 Months</option>
+            <option value="custom">Custom Month Range</option>
+          </select>
+
+          {reportPeriod === "custom" && (
+            <>
+              <input
+                type="month"
+                value={reportFromMonth}
+                onChange={(event) => setReportFromMonth(event.target.value)}
+                className="px-3 py-2.5 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                title="From month"
+              />
+              <input
+                type="month"
+                value={reportToMonth}
+                onChange={(event) => setReportToMonth(event.target.value)}
+                className="px-3 py-2.5 border border-slate-200 rounded-2xl text-sm font-semibold text-slate-700 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                title="To month"
+              />
+            </>
+          )}
+
+          <button
+            onClick={handleDownloadAllSalesReps}
+            disabled={downloadCombinedReport.isPending || isCustomRangeInvalid}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-2xl text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            {downloadCombinedReport.isPending ? "Exporting..." : "Export All Sales Reps"}
+          </button>
+
           <button
             onClick={() => {
               setSearchQuery("");
@@ -204,6 +319,14 @@ export default function TeamPerformancePage() {
             Clear
           </button>
         </div>
+        {isCustomRangeInvalid && (
+          <p className="mt-3 text-sm font-semibold text-rose-600">
+            Select a valid custom month range before exporting.
+          </p>
+        )}
+        {downloadError && (
+          <p className="mt-3 text-sm font-semibold text-rose-600">{downloadError}</p>
+        )}
       </div>
 
       <div>
@@ -235,6 +358,7 @@ export default function TeamPerformancePage() {
               <tbody className="divide-y divide-slate-50">
                 {filteredUsers.map((user) => {
                   const stats = statsMap.get(user._id) ?? createEmptyStats(user._id);
+                  const canExportRow = user.role !== "admin";
 
                   return (
                     <tr
@@ -303,13 +427,24 @@ export default function TeamPerformancePage() {
                       </td>
 
                       <td className="px-8 py-5 text-center">
-                        <Link
-                          href={`/admin/team/${user._id}`}
-                          className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-all duration-300 inline-flex items-center justify-center group-hover:scale-110"
-                          title="Open performance profile"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </Link>
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadIndividualSalesRep(user._id)}
+                            className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:border-emerald-400 hover:text-emerald-600 transition-all duration-300 inline-flex items-center justify-center group-hover:scale-110 disabled:opacity-60 disabled:cursor-not-allowed"
+                            title={canExportRow ? "Export this user's report" : "Admin report export is not available here"}
+                            disabled={!canExportRow || downloadingUserId === user._id || isCustomRangeInvalid}
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+                          <Link
+                            href={`/admin/team/${user._id}`}
+                            className="p-3 bg-white border border-slate-200 rounded-2xl text-slate-400 hover:border-indigo-400 hover:text-indigo-600 transition-all duration-300 inline-flex items-center justify-center group-hover:scale-110"
+                            title="Open performance profile"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   );
