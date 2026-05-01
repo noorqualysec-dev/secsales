@@ -47,8 +47,21 @@ export interface TaskPayload {
     dueDate: number;
     priority: TaskPriority;
     status?: TaskStatus;
-    assignedTo?: string;
+    assignedTo?: string | string[];
 }
+
+const normalizeTaskAssigneeIds = (assignedTo: unknown): string[] => {
+    const rawAssignees = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+    const uniqueAssignees: string[] = [];
+
+    for (const assignee of rawAssignees) {
+        const assigneeId = String(assignee || "").trim();
+        if (!assigneeId || uniqueAssignees.includes(assigneeId)) continue;
+        uniqueAssignees.push(assigneeId);
+    }
+
+    return uniqueAssignees;
+};
 
 export function useSalesSummary(filters: { startDate?: number; endDate?: number } = {}) {
     return useQuery<ApiResponse<SalesSummary>>({
@@ -85,7 +98,7 @@ export function useTasks(filters: TaskFilters = {}) {
                     if (filters.status && task.status !== filters.status) return false;
                     if (filters.priority && task.priority !== filters.priority) return false;
                     if (filters.leadId && task.leadId !== filters.leadId) return false;
-                    if (filters.assignedTo && task.assignedTo !== filters.assignedTo) return false;
+                    if (filters.assignedTo && !normalizeTaskAssigneeIds(task.assignedTo).includes(filters.assignedTo)) return false;
                     if (filters.search) {
                         const queryText = filters.search.toLowerCase();
                         const haystack = [

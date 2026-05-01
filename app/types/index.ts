@@ -211,7 +211,7 @@ export interface Task {
   dueDate: number;
   status: TaskStatus;
   priority: TaskPriority;
-  assignedTo: string;
+  assignedTo: string[];
   assignedBy?: string;
   createdBy: string;
   source: TaskSource;
@@ -220,6 +220,8 @@ export interface Task {
   leadName?: string;
   company?: string;
   assignedToName?: string;
+  assignedToNames?: string[];
+  assignedToUsers?: Array<{ _id: string; name?: string; email?: string; role?: User["role"] }>;
   assignedByName?: string;
   createdByName?: string;
   completedAt?: number | null;

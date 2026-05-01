@@ -48,6 +48,19 @@ const priorityClasses: Record<TaskPriority, string> = {
   High: "bg-orange-50 text-orange-700",
 };
 
+const normalizeTaskAssigneeIds = (assignedTo: unknown): string[] => {
+  const rawAssignees = Array.isArray(assignedTo) ? assignedTo : [assignedTo];
+  const uniqueAssignees: string[] = [];
+
+  for (const assignee of rawAssignees) {
+    const assigneeId = String(assignee || "").trim();
+    if (!assigneeId || uniqueAssignees.includes(assigneeId)) continue;
+    uniqueAssignees.push(assigneeId);
+  }
+
+  return uniqueAssignees;
+};
+
 function TaskEditor({
   task,
   leads,
@@ -69,10 +82,16 @@ function TaskEditor({
     status: TaskStatus;
     priority: TaskPriority;
     leadId?: string | null;
-    assignedTo?: string;
+    assignedTo?: string[];
   }) => void;
   isSaving: boolean;
 }) {
+  const defaultAssignees = useMemo(() => {
+    const taskAssignees = normalizeTaskAssigneeIds(task?.assignedTo);
+    if (taskAssignees.length) return taskAssignees;
+    return users[0]?._id ? [users[0]._id] : [];
+  }, [task?.assignedTo, users]);
+
   const [form, setForm] = useState({
     subject: task?.subject || "",
     description: task?.description || "",
@@ -80,8 +99,9 @@ function TaskEditor({
     status: (task?.status || "Pending") as TaskStatus,
     priority: (task?.priority || "Medium") as TaskPriority,
     leadId: task?.leadId || "",
-    assignedTo: task?.assignedTo || users[0]?._id || "",
+    assignedTo: defaultAssignees,
   });
+  const [assigneeError, setAssigneeError] = useState("");
 
   const inputCls =
     "w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-800 outline-none transition focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50";
@@ -109,6 +129,11 @@ function TaskEditor({
         <form
           onSubmit={(e) => {
             e.preventDefault();
+            const normalizedAssignees = normalizeTaskAssigneeIds(form.assignedTo);
+            if (canAssign && normalizedAssignees.length === 0) {
+              setAssigneeError("Select at least one assignee.");
+              return;
+            }
             onSave({
               subject: form.subject.trim(),
               description: form.description.trim(),
@@ -116,7 +141,7 @@ function TaskEditor({
               status: form.status,
               priority: form.priority,
               leadId: form.leadId || null,
-              assignedTo: canAssign ? form.assignedTo : undefined,
+              assignedTo: canAssign ? normalizedAssignees : undefined,
             });
           }}
           className="space-y-5 p-6"
@@ -218,17 +243,42 @@ function TaskEditor({
                 <label className="mb-2 block text-xs font-black uppercase tracking-[0.18em] text-slate-500">
                   Assign To
                 </label>
-                <select
-                  className={inputCls}
-                  value={form.assignedTo}
-                  onChange={(e) => setForm((prev) => ({ ...prev, assignedTo: e.target.value }))}
-                >
-                  {users.map((user) => (
-                    <option key={user._id} value={user._id}>
-                      {user.name} ({user.role})
-                    </option>
-                  ))}
-                </select>
+                <div className="max-h-52 space-y-2 overflow-y-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                  {users.map((user) => {
+                    const checked = form.assignedTo.includes(user._id);
+                    return (
+                      <label
+                        key={user._id}
+                        className="flex cursor-pointer items-center justify-between rounded-xl border border-transparent bg-white px-3 py-2 text-sm text-slate-700 transition hover:border-indigo-200"
+                      >
+                        <div>
+                          <p className="font-semibold text-slate-800">{user.name}</p>
+                          <p className="text-xs text-slate-500">{user.role}</p>
+                        </div>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={(e) => {
+                            setAssigneeError("");
+                            setForm((prev) => ({
+                              ...prev,
+                              assignedTo: e.target.checked
+                                ? [...prev.assignedTo, user._id]
+                                : prev.assignedTo.filter((id) => id !== user._id),
+                            }));
+                          }}
+                          className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  {form.assignedTo.length} assignee{form.assignedTo.length === 1 ? "" : "s"} selected
+                </p>
+                {assigneeError && (
+                  <p className="mt-1 text-xs font-semibold text-rose-600">{assigneeError}</p>
+                )}
               </div>
             )}
           </div>
@@ -314,7 +364,7 @@ export function TasksWorkspace({
     status: TaskStatus;
     priority: TaskPriority;
     leadId?: string | null;
-    assignedTo?: string;
+    assignedTo?: string[];
   }) => {
     if (editorTask) {
       updateTask.mutate(
@@ -535,10 +585,12 @@ export function TasksWorkspace({
                           {task.company ? ` · ${task.company}` : ""}
                         </div>
                       )}
-                      {(canAssign || adminView) && task.assignedToName && (
+                      {(canAssign || adminView) && (task.assignedToNames?.length || task.assignedToName) && (
                         <div className="inline-flex items-center gap-2 rounded-2xl bg-slate-50 px-3 py-2">
                           <UserSquare2 size={15} />
-                          {task.assignedToName}
+                          {(task.assignedToNames && task.assignedToNames.length > 0)
+                            ? task.assignedToNames.join(", ")
+                            : task.assignedToName}
                         </div>
                       )}
                       {!canAssign && task.source === "admin" && task.assignedByName && (
