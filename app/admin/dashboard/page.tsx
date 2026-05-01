@@ -22,12 +22,16 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { PIPELINE_LEAD_STATUSES } from "@/app/lib/leadStatus";
+import { useAdminAuth } from "@/app/hooks/useAdminAuth";
+import { canManageUsers } from "@/app/utils/permissions";
 
 export default function AdminDashboard() {
+  const { user } = useAdminAuth(false);
   const { data: userData, isLoading: userLoading } = useAdminUsers();
   const { data: leadData, isLoading: leadLoading } = useAdminLeads();
   const { data: proposalData, isLoading: proposalLoading } = useAdminProposals();
   const { data: statsData, isLoading: statsLoading } = useAdminStats();
+  const showUserManagement = canManageUsers(user?.role);
 
   const users = userData?.data ?? [];
   const leads = leadData?.data ?? [];
@@ -129,7 +133,9 @@ export default function AdminDashboard() {
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between px-2">
             <h2 className="text-[11px] font-extrabold text-slate-900 tracking-widest uppercase">System Audit: Users</h2>
-            <Link href="/admin/users" className="text-xs font-bold text-indigo-600 hover:underline">View All</Link>
+            {showUserManagement && (
+              <Link href="/admin/users" className="text-xs font-bold text-indigo-600 hover:underline">View All</Link>
+            )}
           </div>
 
           <div className="bg-white border border-slate-200 rounded-2xl shadow-sm divide-y divide-slate-100 overflow-hidden">
@@ -158,10 +164,12 @@ export default function AdminDashboard() {
           </h3>
           <div className="space-y-3 relative z-10">
             {[
-              { label: "Manage User Access", href: "/admin/users", icon: Users },
+              { label: "Manage User Access", href: "/admin/users", icon: Users, requiresAdmin: true },
               { label: "Lead Reassignment", href: "/admin/leads", icon: Target },
               { label: "Audit Proposals", href: "/admin/proposals", icon: HandCoins }
-            ].map((link) => (
+            ]
+              .filter((link) => !link.requiresAdmin || showUserManagement)
+              .map((link) => (
               <Link key={link.label} href={link.href} className="bg-white/5 border border-white/10 p-4 rounded-xl flex items-center justify-between hover:bg-white/10 transition-all group/btn">
                 <span className="text-sm font-bold flex items-center gap-3"><link.icon size={16} className="text-indigo-400" /> {link.label}</span>
                 <ChevronRight size={14} className="opacity-40 group-hover/btn:opacity-100 group-hover/btn:translate-x-1 transition-all" />

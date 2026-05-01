@@ -23,12 +23,19 @@ interface AdminSidebarProps {
   role?: AppRole | null;
 }
 
-const navItems = [
+type NavItem = {
+  name: string;
+  href: string;
+  icon: typeof LayoutDashboard;
+  requiresAdmin?: boolean;
+};
+
+const navItems: NavItem[] = [
   { name: "Overview",      href: "/admin/dashboard",  icon: LayoutDashboard },
   { name: "Analytics",     href: "/admin/analytics",  icon: BarChart3 },
   { name: "Tasks",         href: "/admin/tasks",      icon: ListTodo },
   { name: "Lead Kanban",   href: "/admin/kanban",     icon: LayoutDashboard },
-  { name: "Manage Users",  href: "/admin/users",      icon: Users },
+  { name: "Manage Users",  href: "/admin/users",      icon: Users, requiresAdmin: true },
   { name: "All Leads",     href: "/admin/leads",      icon: Database },
   { name: "Companies",     href: "/admin/companies",  icon: Building2 },
   { name: "All Proposals", href: "/admin/proposals",  icon: FileCheck },
@@ -38,6 +45,7 @@ const navItems = [
 export function AdminSidebar({ onClose, role }: AdminSidebarProps) {
   const pathname = usePathname();
   const showManagerSalesTools = role === "manager";
+  const visibleNavItems = navItems.filter((item) => !item.requiresAdmin || role === "admin");
 
   return (
     <aside className="w-68 h-full bg-slate-900 text-white flex flex-col shrink-0 border-r border-slate-800 shadow-2xl">
@@ -54,7 +62,7 @@ export function AdminSidebar({ onClose, role }: AdminSidebarProps) {
       </div>
 
       <nav className="flex-1 overflow-y-auto p-4 space-y-2 mt-4 custom-scrollbar">
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
 

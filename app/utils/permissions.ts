@@ -22,6 +22,10 @@ export const canViewAdminDashboardModules = (
   role: AppRole | string | null | undefined
 ) => isElevatedRole(role);
 
+export const canManageUsers = (
+  role: AppRole | string | null | undefined
+) => isAdminRole(role);
+
 export const shouldForceAdminWorkspace = (
   role: AppRole | string | null | undefined
 ) => isAdminRole(role);
