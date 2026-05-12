@@ -167,6 +167,8 @@ export default function AdminLeadsPage() {
         const fullName = `${lead.firstName} ${lead.lastName}`.toLowerCase();
         const email = (lead.email ?? "").toLowerCase();
         const company = (lead.company ?? "").toLowerCase();
+        const country = (lead.country ?? "").toLowerCase();
+        const region = (lead.region ?? "").toLowerCase();
         const assignedTo = typeof lead.assignedTo === "object" && lead.assignedTo
           ? lead.assignedTo.name.toLowerCase()
           : "";
@@ -174,6 +176,8 @@ export default function AdminLeadsPage() {
           fullName.includes(normalizedName) ||
           email.includes(normalizedName) ||
           company.includes(normalizedName) ||
+          country.includes(normalizedName) ||
+          region.includes(normalizedName) ||
           assignedTo.includes(normalizedName)
         );
       })
@@ -320,14 +324,14 @@ export default function AdminLeadsPage() {
             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Name Search</label>
             <div className="relative mt-1">
               <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                value={nameFilter}
-                onChange={(e) => updateQueryParams({ name: e.target.value || null }, { resetPage: true })}
-                placeholder="Search by lead, company, assignee..."
-                className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-9 pr-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400"
-              />
+                <input
+                  value={nameFilter}
+                  onChange={(e) => updateQueryParams({ name: e.target.value || null }, { resetPage: true })}
+                  placeholder="Search by lead, company, country, assignee..."
+                  className="w-full rounded-2xl border border-slate-200 bg-slate-50 pl-9 pr-4 py-3 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-indigo-50 focus:border-indigo-400"
+                />
+              </div>
             </div>
-          </div>
           <div>
             <label className="text-[10px] font-extrabold text-slate-400 uppercase tracking-[0.2em] ml-1">Date</label>
             <input
@@ -438,6 +442,9 @@ export default function AdminLeadsPage() {
                          <div className="space-y-0.5">
                             <p className="text-xs font-bold text-slate-700 uppercase">{lead.company ?? "Privately Held"}</p>
                             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{lead.industry || "General Inquiry"}</p>
+                            <p className="text-[10px] font-semibold text-slate-400">
+                              {[lead.country, lead.region].filter(Boolean).join(" | ") || "Country / region not set"}
+                            </p>
                          </div>
                       </td>
                       <td className="px-8 py-5">

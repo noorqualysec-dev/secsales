@@ -92,7 +92,7 @@ export default function AdminLeadJourneyPage() {
               </span>
             </div>
             <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1 flex items-center gap-2">
-              <Building2 size={14} /> {lead.company || "Direct Engagement"} · {lead.industry || "General Inquiry"}
+              <Building2 size={14} /> {lead.company || "Direct Engagement"} | {lead.industry || "General Inquiry"} | {lead.country || "Country not set"}
             </p>
           </div>
         </div>

@@ -74,6 +74,20 @@ const PHONE_COUNTRY_OPTIONS: { name: string; dial: string }[] = [
   { name: "Vietnam", dial: "+84" },
 ].sort((a, b) => a.name.localeCompare(b.name));
 
+const PHONE_DIAL_OPTIONS = Array.from(
+  PHONE_COUNTRY_OPTIONS.reduce((acc, option) => {
+    const names = acc.get(option.dial) ?? [];
+    names.push(option.name);
+    acc.set(option.dial, names);
+    return acc;
+  }, new Map<string, string[]>()).entries()
+)
+  .map(([dial, names]) => ({
+    dial,
+    label: `${names.join(" / ")} (${dial})`,
+  }))
+  .sort((a, b) => a.dial.localeCompare(b.dial, undefined, { numeric: true }));
+
 const statusColors: Record<string, string> = {
   "Lead Captured": "bg-blue-50 text-blue-600 border-blue-100",
   "Discovery Call Scheduled": "bg-purple-50 text-purple-600 border-purple-100",
@@ -204,20 +218,20 @@ function splitContactPersonName(fullName: string): { firstName: string; lastName
   };
 }
 
-function splitLegacyPhone(full: string): { phoneCountryCode: string; phone: string; country: string } {
+function splitLegacyPhone(full: string): { phoneCountryCode: string; phone: string } {
   const t = full.trim();
-  if (!t) return { phoneCountryCode: "", phone: "", country: "" };
+  if (!t) return { phoneCountryCode: "", phone: "" };
   if (!t.startsWith("+")) {
-    return { phoneCountryCode: "", phone: t.replace(/\D/g, ""), country: "" };
+    return { phoneCountryCode: "", phone: t.replace(/\D/g, "") };
   }
   const sorted = [...PHONE_COUNTRY_OPTIONS].sort((a, b) => b.dial.length - a.dial.length);
   for (const o of sorted) {
     if (t.startsWith(o.dial)) {
       const national = t.slice(o.dial.length).replace(/\D/g, "");
-      return { phoneCountryCode: o.dial, phone: national, country: o.name };
+      return { phoneCountryCode: o.dial, phone: national };
     }
   }
-  return { phoneCountryCode: "", phone: t, country: "" };
+  return { phoneCountryCode: "", phone: t };
 }
 
 function leadFullName(lead: Pick<Lead, "firstName" | "lastName">): string {
@@ -296,12 +310,10 @@ function leadContactToForm(contact: LeadContact): CompanyContactForm {
 function leadToFormInitial(lead: Lead): LeadForm {
   let phoneCountryCode = lead.phoneCountryCode?.trim() ?? "";
   let phone = (lead.phone ?? "").trim();
-  let country = lead.country ?? "";
   if (!phoneCountryCode && phone.startsWith("+")) {
     const parsed = splitLegacyPhone(phone);
     phoneCountryCode = parsed.phoneCountryCode;
     phone = parsed.phone;
-    if (!country && parsed.country) country = parsed.country;
   } else {
     phone = phone.replace(/\D/g, "");
   }
@@ -318,7 +330,7 @@ function leadToFormInitial(lead: Lead): LeadForm {
     phoneCountryCode,
     phone,
     company: lead.company ?? "",
-    country,
+    country: lead.country ?? "",
     region: lead.region ?? "",
     industrySelect,
     industryOther,
@@ -350,6 +362,7 @@ function formToApiPayload(form: LeadForm): LeadPayload {
   const normalizedLostReason = lostReason.trim();
   return {
     ...rest,
+    country: rest.country.trim() || undefined,
     region: rest.region || undefined,
     lostReason: rest.outcome === "lost" ? normalizedLostReason : undefined,
     industry: industry || undefined,
@@ -497,26 +510,18 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
               </div>
               <div className="col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className={labelCls}>Country / dialing code</label>
+                  <label className={labelCls}>Calling code</label>
                   <select
                     className={inputCls}
-                    value={form.phoneCountryCode && form.country ? `${form.phoneCountryCode}|${form.country}` : ""}
+                    value={form.phoneCountryCode}
                     onChange={(e) => {
-                      const v = e.target.value;
-                      if (!v) {
-                        setForm((f) => ({ ...f, phoneCountryCode: "", country: "" }));
-                        return;
-                      }
-                      const pipe = v.indexOf("|");
-                      const dial = v.slice(0, pipe);
-                      const name = v.slice(pipe + 1);
-                      setForm((f) => ({ ...f, phoneCountryCode: dial, country: name }));
+                      setForm((f) => ({ ...f, phoneCountryCode: e.target.value }));
                     }}
                   >
-                    <option value="">Select country (optional)</option>
-                    {PHONE_COUNTRY_OPTIONS.map((o) => (
-                      <option key={`${o.dial}-${o.name}`} value={`${o.dial}|${o.name}`}>
-                        {o.name} ({o.dial})
+                    <option value="">Select calling code (optional)</option>
+                    {PHONE_DIAL_OPTIONS.map((o) => (
+                      <option key={o.dial} value={o.dial}>
+                        {o.label}
                       </option>
                     ))}
                   </select>
@@ -544,6 +549,10 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
               <div className="col-span-2">
                 <label className={labelCls}>Company Legal Name</label>
                 <input className={inputCls} value={form.company} onChange={set("company")} placeholder="Global Tech Corp" />
+              </div>
+              <div>
+                <label className={labelCls}>Country</label>
+                <input className={inputCls} value={form.country} onChange={set("country")} placeholder="India, United States, etc." />
               </div>
               <div>
                 <label className={labelCls}>Employee Strength</label>
@@ -695,16 +704,16 @@ function LeadModal({ initial, onSave, onClose, isSaving }: {
                         </select>
                       </div>
                       <div>
-                        <label className={labelCls}>Country / dialing code</label>
+                        <label className={labelCls}>Calling code</label>
                         <select
                           className={inputCls}
                           value={contact.phoneCountryCode}
                           onChange={(e) => updateContact(index, "phoneCountryCode", e.target.value)}
                         >
-                          <option value="">Select country (optional)</option>
-                          {PHONE_COUNTRY_OPTIONS.map((o) => (
-                            <option key={`${o.dial}-${o.name}`} value={o.dial}>
-                              {o.name} ({o.dial})
+                          <option value="">Select calling code (optional)</option>
+                          {PHONE_DIAL_OPTIONS.map((o) => (
+                            <option key={o.dial} value={o.dial}>
+                              {o.label}
                             </option>
                           ))}
                         </select>
@@ -1376,7 +1385,10 @@ export default function LeadsPage() {
                           ) : (
                             <p className="text-xs font-bold text-slate-700 uppercase">Privately Held</p>
                           )}
-                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{lead.industry || "—"}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{lead.industry || "-"}</p>
+                          <p className="text-[10px] font-semibold text-slate-400">
+                            {[lead.country, lead.region].filter(Boolean).join(" | ") || "Country / region not set"}
+                          </p>
                         </div>
                       </td>
                       <td className="px-10 py-6">

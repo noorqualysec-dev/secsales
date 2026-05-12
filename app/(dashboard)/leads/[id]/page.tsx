@@ -95,7 +95,7 @@ export default function LeadJourneyPage() {
               </span>
             </div>
             <p className="text-slate-500 font-bold text-xs uppercase tracking-widest mt-1 flex items-center gap-2">
-              <Building2 size={14} /> {lead.company || "Direct Engagement"}
+              <Building2 size={14} /> {lead.company || "Direct Engagement"} | {lead.industry || "General Inquiry"} | {lead.country || "Country not set"}
             </p>
           </div>
         </div>
