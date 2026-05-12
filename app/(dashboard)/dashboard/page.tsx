@@ -201,6 +201,7 @@ export default function DashboardPage() {
 
   const quickStats = [
     { label: "My Open Deals", value: summary?.openDeals ?? 0, icon: Briefcase, color: "text-indigo-600", bg: "bg-indigo-50" },
+    { label: "Won Deals", value: summary?.wonDeals ?? 0, icon: CheckCircle2, color: "text-emerald-600", bg: "bg-emerald-50" },
     { label: "Untouched Deals", value: summary?.untouchedDeals ?? 0, icon: Clock, color: "text-amber-600", bg: "bg-amber-50" },
     { label: "My Calls Today", value: summary?.callsToday ?? 0, icon: PhoneCall, color: "text-emerald-600", bg: "bg-emerald-50" },
     { label: "My Leads", value: summary?.totalMyLeads ?? 0, icon: Users, color: "text-blue-600", bg: "bg-blue-50" },
@@ -231,7 +232,7 @@ export default function DashboardPage() {
   if (summaryLoading) return (
     <div className="space-y-8 animate-pulse p-8">
       <div className="h-12 w-64 bg-slate-200 rounded-xl mb-10" />
-      <div className="grid grid-cols-4 gap-6">{[...Array(4)].map((_, i) => <div key={i} className="h-32 bg-slate-100 rounded-2xl" />)}</div>
+      <div className="grid grid-cols-5 gap-6">{[...Array(5)].map((_, i) => <div key={i} className="h-32 bg-slate-100 rounded-2xl" />)}</div>
       <div className="grid grid-cols-2 gap-8">{[...Array(2)].map((_, i) => <div key={i} className="h-64 bg-slate-50 rounded-3xl" />)}</div>
     </div>
   );
@@ -300,7 +301,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Top Pulse Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
         {quickStats.map((stat) => (
           <div key={stat.label} className="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
             <div className="flex items-center justify-between mb-4">

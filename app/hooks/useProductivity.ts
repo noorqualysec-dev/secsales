@@ -4,6 +4,8 @@ import { ApiResponse, Task, TaskPriority, TaskStatus } from "../types";
 
 export interface SalesSummary {
     openDeals: number;
+    wonDeals: number;
+    wonDealsThisMonth: any[];
     untouchedDeals: number;
     callsToday: number;
     totalMyLeads: number;
