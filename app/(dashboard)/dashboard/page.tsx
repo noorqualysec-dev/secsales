@@ -40,6 +40,35 @@ import { canViewAdminDashboardModules } from "@/app/utils/permissions";
 const getMeetingTitle = (meeting: any) => meeting.subject || meeting.title || "Untitled Meeting";
 const getMeetingStart = (meeting: any) => meeting.startTime ?? meeting.from ?? 0;
 const getMeetingEnd = (meeting: any) => meeting.endTime ?? meeting.to ?? 0;
+const IST_OFFSET_MS = 5.5 * 60 * 60 * 1000;
+
+const formatISTDateTimeInput = (value: number | string) => {
+  const timestamp = Number(value);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
+  return new Date(timestamp + IST_OFFSET_MS).toISOString().slice(0, 16);
+};
+
+const parseISTDateTimeInput = (value: string) => {
+  if (!value) return "";
+  const [datePart, timePart] = value.split("T");
+  const [year, month, day] = datePart.split("-").map(Number);
+  const [hour, minute] = timePart.split(":").map(Number);
+  return Date.UTC(year, month - 1, day, hour, minute) - IST_OFFSET_MS;
+};
+
+const formatISTMonth = (date: Date) =>
+  date.toLocaleDateString("en-IN", { month: "short", timeZone: "Asia/Kolkata" });
+
+const formatISTDay = (date: Date) =>
+  date.toLocaleDateString("en-IN", { day: "numeric", timeZone: "Asia/Kolkata" });
+
+const formatISTTime = (date: Date) =>
+  date.toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
 
 // ── Quick Modals ─────────────────────────────────────────────────────────────
 
@@ -136,11 +165,11 @@ function MeetingModal({ leads, initial, onSave, onClose, isSaving }: {
            <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Starts At</label>
-                <input className={inputCls} type="datetime-local" value={form.from ? new Date(form.from).toISOString().slice(0, 16) : ""} onChange={e => setForm({...form, from: new Date(e.target.value).getTime()})} required />
+                <input className={inputCls} type="datetime-local" value={formatISTDateTimeInput(form.from)} onChange={e => setForm({...form, from: parseISTDateTimeInput(e.target.value)})} required />
               </div>
               <div>
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 block">Ends At</label>
-                <input className={inputCls} type="datetime-local" value={form.to ? new Date(form.to).toISOString().slice(0, 16) : ""} onChange={e => setForm({...form, to: new Date(e.target.value).getTime()})} required />
+                <input className={inputCls} type="datetime-local" value={formatISTDateTimeInput(form.to)} onChange={e => setForm({...form, to: parseISTDateTimeInput(e.target.value)})} required />
               </div>
            </div>
            <button type="submit" disabled={isSaving} className="w-full py-4 bg-emerald-600 hover:bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-xl shadow-emerald-500/10 disabled:opacity-50">
@@ -267,8 +296,8 @@ export default function DashboardPage() {
             } else {
               scheduleMeeting.mutate({ 
                 ...d, 
-                from: new Date(d.from).getTime(), 
-                to: new Date(d.to).getTime() 
+                from: Number(d.from),
+                to: Number(d.to)
               }, { onSuccess: () => setModal(null) });
             }
           }}
@@ -590,10 +619,10 @@ export default function DashboardPage() {
                           :            "bg-slate-900 text-white"}`}
                         >
                           <span className="text-[7px] font-black uppercase tracking-widest leading-none opacity-70">
-                            {fromDate.toLocaleDateString([], { month: "short" })}
+                            {formatISTMonth(fromDate)}
                           </span>
                           <span className="text-[17px] font-black leading-snug">
-                            {fromDate.getDate()}
+                            {formatISTDay(fromDate)}
                           </span>
                         </div>
 
@@ -639,7 +668,7 @@ export default function DashboardPage() {
                         {/* Time + Duration */}
                         <div className="shrink-0 text-right mr-1">
                           <p className={`text-xs font-black ${isToday ? "text-indigo-700" : "text-slate-700"}`}>
-                            {fromDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {formatISTTime(fromDate)}
                           </p>
                           <p className="text-[9px] text-slate-400 font-medium">
                             {durationMin > 0 ? `${durationMin} min` : "—"}
